@@ -82,16 +82,20 @@
     - audit 一轮（两条）：① 模板里出现多个 `{doing}` 时原来只处理第一个（`"{doing} doing · {doing} doing"` + doing 0 → `Todo 0/2 · 0 doing`），改成逐个按同一套删（`renderHeader` 重扫，删不出新占位符所以收敛），新增用例 `模板里有多个 {doing} 时每个都按同一套处理`；② `maxLines: 1` 时原来吐 2 行（表头 + `+N more`）破了「`maxLines` 是总行数」的表述，`renderWidget` 给汇总行加 `budget > 0` 条件（预算连表头都装不下就只剩表头），新增用例 `maxLines 为 1 时只剩表头，汇总行也不出`（`maxLines 2` → 表头 + `+2 more`）；`maxLines` 低于 2 在真实配置里不可达（`config.ts` clamp 3–10）
   - 前置：T3
 
-- [ ] T6 index.ts 接线
+- [x] T6 index.ts 接线
   - 交付物：`index.ts`（读配置 → 注册工具、三个会话事件 → `appendEntry` → `setWidget` 组件工厂）；模型侧文案从 `prompt/my prompt new/` 搬入，`tool-name:` 替成配置里的真实工具名
   - 验收：
     - AC1 工具名取 `tools.todo.name`；description / guidelines / schema 与定稿逐字一致（可脚本比对）
     - AC2 一次调用后 `getBranch()` 里出现一条 `pi-todo-state`，`data.tasks` 与入参一致
     - AC3 三个事件从空 entries 回放都不抛错
   - 验收证据指针：
-    - AC1
-    - AC2
-    - AC3
+    - AC1 `test/index.test.ts`：`工具名取 tools.todo.name，sequential，label 是 Todo`（name `tasklist` 生效）/ `description / guidelines / schema 与定稿逐字一致`（description 逐字 `Keep a todo list for multi-step work.`、guidelines 逐字两条带 `todo: ` 前缀、`promptSnippet` 是 `undefined`、schema 与字面 JSON 逐字相等）/ `guidelines 里的 tool-name: 替成配置里的工具名`（`tasklist: Keep content short, one line, imperative.`）/ `description 与 guidelines 跟着配置走`（自定义 description 与 guidelines，`tool-name` 仍被替换）；**脚本比对定稿**（`prompt/my prompt new/` 现读现比）：description 逐字 true、37 字符，guidelines 逐字 true，占位版 146 字符 → 替成 `todo` 后 **136 字符**（对上 PLAN AC6 的定稿数）、2 条，`promptSnippet` 与 snippet.md 一样是空；`一条 guideline 里写了多次 tool-name 时每处都替换`（`tool-name: a tool-name note` → `todo: a todo note`，旧实现只替第一处）/ `模型侧文案对得上 PLAN AC6 的定稿数：description 37 字符、guidelines 合计 136 字符`。**仓库内可复现的锚点是 `config.ts` 的 `DEFAULTS` + 这些用例的字面量与字符数**（干净克隆上 `pnpm test` 就能跑）；`prompt/my prompt new/` 的现读现比属于**本机一次性核对**（`prompt/` 被 `.gitignore` 忽略、不在版本控制里，干净克隆/CI 上复现不了）
+    - AC2 `test/index.test.ts`：`appendEntry 出一条 pi-todo-state，data.tasks 是校验后的 tasks（content 已 trim），返回值是 formatTasks 的文本`（entries 逐字 `{type:"custom", customType:"pi-todo-state", data:{tasks:[…]}}`、返回 `Todo 0/1\n[ ] a`；"与入参一致"是校验后的一致：传 `content: "  a  "` 时 entry 里存的是 trim 过的 `"a"`，不是原始入参逐字）/ `校验失败：抛出错误、不写 entry、不重画`（`todo: task 1: content is empty`，entries 空、requestRender 0 次）/ `tasks: [] 清空表：entry 里是空表，widget 渲染成空` / `状态变化后重画一次 widget`（requestRender 恰好 1 次）
+    - AC3 `test/index.test.ts`：`三个事件从空 entries 回放都不抛错`（三个事件各设一次 widget，渲染 `[]`）/ `回放最后一条快照：session_tree 之后 widget 显示旧任务，placement 取配置`（`Todo 1/2` / `[ ] a` / `[x] b`，`{placement:"belowEditor"}`）/ `widget.enabled 为 false 时不注册 widget，工具照常注册` / `没有 UI（hasUI 为 false 或缺 setWidget）时静默跳过`
+    - 口径记录：接线单测用 **fake api + fake ctx**（`registerTool` / `on` / `appendEntry` / `ui.setWidget` / `sessionManager.getBranch` 五样），只断言我们交给 pi 的东西 —— pi 自己的 schema 校验、事件顺序、widget 渲染不在测试范围（真机 T7）；`appendEntry` 的 `customType` 用 `plan.ts` 新导出的 `STATE_CUSTOM_TYPE`（plan.ts 原来只私有，T6 起是契约的一部分）；`execute` 的 `details` 留空（状态只写 custom entry，回放不读 toolResult details）；`label` 文档没写，取 `"Todo"`
+    - 偏差：① `prompt/my prompt new/schema.md` 的定稿片段没有 `additionalProperties: false`，实现按 `docs/modules/plan.md:27` 内外层都加了（脚本比对因此只能对字段形状，不对整段文本）；② `docs/modules/index.md` 原写「description / guidelines / 参数 schema 直接写在这个文件里」，实现改成 description / guidelines 从 `config.guidance.*` 取（`DEFAULTS` 里就是定稿正文，否则 T2 的 guidance 三个键没有消费者），模块文档同步改成现在这句；③ 模块文档原写「接线不写单测」，T6 的 AC1–AC3 要证据指针，改成 fake harness 测（真机留给 T7）
+    - PLAN AC6 复测（定稿，按宿主自己的估算器算）：description 37 + guidelines 137（= 两条逐字相加 136 + 行间 1 个换行）+ 签名一行 144 = **318 字符** → pi-ai 的 `estimateTextTokens`（`CHARS_PER_TOKEN = 3.5`，`pi-ai/dist/utils/estimate.js:2,23`，即 `ceil(字符数 / 3.5)`）**91 tok**；codemode 自己的 inline 预算口径（4 字符/token，`pi-coding-agent/dist/extensions/codemode/tool.js:68,135`）80 tok —— 两套都 ≤ 120。**模型真正看到的那一段**（`### \`todo\`` 标题含换行 11 字符 + `renderToolSample` 输出 363 字符，含收尾的换行与代码围栏）= 374 字符 → 107 tok（3.5）/ 94 tok（4）；只算到代码块内容结束（去掉收尾 4 字符）是 370。签名一行逐字：`declare const tools: { todo(args: { tasks: Array<{ content: string; status: "pending" | "in_progress" | "completed"; }>; }): Promise<string>; };` —— `additionalProperties: false` 不进签名（`schemaToType` 不看它），所以加它零字符成本
+    - audit 一轮（四条）：① token 数改用宿主估算器的口径（3.5 字符/token）并注明 codemode 自己的 4 字符/token 预算口径；② 更正「codemode 整段」的长度定义（374 = 标题 11 + sample 363）并说明 370 的切法；③ 占位符从 `replace` 改成 `replaceAll`（一条 guideline 写多次只替第一处）+ 用例；④ AC1 证据改成「仓库内锚点 = `DEFAULTS` + 测试字面量」，`prompt/` 比对降级为本机一次性核对；另把 AC2 证据里的「与入参一致」写明是校验后的一致（content 已 trim）
   - 前置：T2、T4、T5
 
 - [ ] T7 真机验收
