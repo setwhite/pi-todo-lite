@@ -52,13 +52,15 @@
 
 | 键 | 默认 | 取值 | 管什么 | 什么时候想改 | 代价 |
 |---|---|---|---|---|---|
-| `commands.todos.enabled` | `true` | true / false | `/todos` 开关 | 不想要这个命令 | 无 |
+| `commands.todos.enabled` | `true` | true / false | `/todos` 开关 | 不想要这个命令 | 关掉后这个命令不再被识别：那行字会当普通 prompt 交给模型（扩展拦不了未知命令；彻底不要就 `-ne` 不加载本扩展） |
 | `commands.export.enabled` | `true` | true / false | `/todos export` 开关 | 从不导出 | 无 |
-| `commands.export.dir` | `""` | 目录路径 | 导出到哪 | 想固定放某个目录 | 默认空 = 项目根 |
-| `commands.export.fileNamePattern` | `"todo-{timestamp}.md"` | 带 `{timestamp}` 的模板 | 导出文件名 | 想换命名 | `{timestamp}` 形如 `20261016-1030`；模板里没有它就会覆盖同名文件 |
-| `commands.import.enabled` | `true` | true / false | `/todos import <文件>` 开关 | —— | 只吃 markdown checklist（`- [ ] 任务` / `- [x] 任务`）一种格式，不解析 JSON；只在表是空的时候允许导，避免把模型的表冲掉 |
+| `commands.export.dir` | `""` | 目录路径 | 导出到哪 | 想固定放某个目录 | 默认空 = 项目根；不存在会被建出来，位置上是文件就报错（错误消息进 `notify`，不落盘） |
+| `commands.export.fileNamePattern` | `"todo-{timestamp}.md"` | 带 `{timestamp}` 的模板 | 导出文件名 | 想换命名 | **只当文件名**：空、`.`、`..` 或带 `/`、`\` 直接报错不落盘；`{timestamp}` 形如 `20261016-1030`（本地时间、分钟粒度）；同名文件不覆盖 —— 名字被占了就让位成 `name-2`、`name-3`… |
+| `commands.import.enabled` | `true` | true / false | `/todos import <文件>` 开关 | —— | 路径是子命令后面剩下的整段（连续空格留住、只剥一层配对引号）；只吃 markdown checklist（`- [ ] 任务` / `- [x] 任务`）一种格式，不解析 JSON；只在表是空的时候允许导，避免把模型的表冲掉；两态有损 —— `in_progress` 导出成未勾选、读回是 `pending` |
 
 > `/todos` 打清单走对话区底部那行灰字（`notify`，多行）：不进模型上下文、不写会话文件、不花 token。
+>
+> 命令名固定 `todos`，不做成配置键（理由见 `docs/modules/index.md` 的取舍与 `docs/TODO.md` T8 偏差）。
 
 ### 组 5 · 给模型看的文案
 
