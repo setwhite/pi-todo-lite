@@ -53,7 +53,7 @@
     - audit 重审（三条）：`echo()` 改按 code point 切（`Array.from` + `slice` 后 `join`），不再可能切出孤立代理对，`config.ts` 同款；`tasks` 不是数组并入 reasons 列表、不再单行早退（`{tasks: 3, action: "add"}` 一次报两条，模型不必等下一轮）；AC 归类改正 —— code point / emoji 那条从 AC3 移回 AC1
   - 前置：T1
 
-- [ ] T4 plan.ts 回放与文本
+- [x] T4 plan.ts 回放与文本
   - 交付物：`replayTasks`、`formatTasks`、`test/plan.test.ts` 续
   - 验收：
     - AC1 一串 entries（中间混入坏条目）取到最后一条有效快照；一条都没有 → `[]`（PLAN AC2）
