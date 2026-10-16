@@ -67,16 +67,19 @@
     - 口径记录：`replayTasks` 对 content 也 trim，保住「`Task.content` 一律 trim 过」的不变量；`formatTasks` 的进度行 `Todo {done}/{total} · {doing} doing`（doing 为 0 时省略后半段）与 `view.ts` 表头同规则，但 view 按契约只从 plan.ts 取类型、自己实现模板 —— 是同规则的两份拷贝，不是共享函数
   - 前置：T3
 
-- [ ] T5 view.ts widget 行
+- [x] T5 view.ts widget 行
   - 交付物：`renderWidget`、`test/view.test.ts`
   - 验收：
     - AC1 0 / 1 / 20 条 × 宽度 40 / 80 / 120：行数、`…` 截断、`+N more` 都符合预期（PLAN AC3）
     - AC2 空表返回 `undefined`；表头 `{doing}` 为 0 时省略 `· … doing`
     - AC3 超出行预算时先整条丢 completed，再砍非完成项的尾巴
   - 验收证据指针：
-    - AC1
-    - AC2
-    - AC3
+    - AC1 `test/view.test.ts`：`20 条 × 宽度 40 / 80 / 120：行数卡在 maxLines 内，末尾是 +N more`（9 行、每行 ≤ width、末行 `+13 more`、第 2 行 `[ ] task 1`）/ `放不下的行按 code point 截断，省略号是 …`（60 字符 content @40 → 逐字 `[ ] ` + 35 个 x + `…`，整行 40 字符）/ `截断不切出半个代理对`（`𠀋×40` @40 → 40 个 code point、无孤立代理字符）/ `表头也按宽度截断`（@5 → `Todo…`）/ `宽度为 0 时给空行，不抛错` / `正好装满预算时不出 +N more`（`maxLines 21` 装 20 条不出汇总，21 条才出 `+2 more`）/ `maxLines 为 3 时只剩表头 + 一行 + 汇总`（逐字 `Todo 0/20`、`[ ] task 1`、`+19 more`）
+    - AC2 `空表返回 undefined，widget 消失`；表头两条：`doing 不为 0 时表头带 · N doing，为 0 时整段省略`（`Todo 1/3 · 1 doing` / `Todo 0/3`）、`表头模板替换三个占位符，认不出的占位符当普通文本`（`{done}/{total} 完成 · {doing} 进行中 ({nope})` → `1/2 完成 ({nope})`，doing 为 0 时删「占位符 + 前邻 · + 后邻一个词」）
+    - AC3 `超预算先整条丢 completed`（3 completed + 1 pending @`maxLines 4` → 逐字 `Todo 3/4`、`[ ] 还剩这件`、`+3 more`）/ `非完成项也超预算时砍尾巴，隐藏数把 completed 一起算上`（8 completed + 20 pending @9 行 → 9 行、`+21 more`、无 `[x]` 行）/ `showCompleted 为 false 时 completed 只进表头计数`（`Todo 1/2` + `[ ] todo`）/ `字形取配置里的三态符号`
+    - 口径记录：`width` 与长度都按 code point 数（与 `plan.ts` 的 `countChars` 同一套，不做 East Asian width，`width` ≤ 0 给空行）；`+N more` 的 N 含被丢掉的 completed（`showCompleted: false` 时 completed 本就不列，故不计入）、汇总行自己占一格（溢出时条目最多 `maxLines - 2` 行）；溢出**不**用 completed 回填空位（rpiv 会回填，我们按 PLAN 的「先整条丢 completed」）；计数永远按整张表算，`showCompleted: false` 只影响条目行
+    - 本轮只落 `renderWidget`：`renderList`（T8）、`toMarkdown` / `parseChecklist`（T9 / T10）按 TODO 留在各自任务里，`docs/modules/view.md` 的契约块已登记
+    - audit 一轮（两条）：① 模板里出现多个 `{doing}` 时原来只处理第一个（`"{doing} doing · {doing} doing"` + doing 0 → `Todo 0/2 · 0 doing`），改成逐个按同一套删（`renderHeader` 重扫，删不出新占位符所以收敛），新增用例 `模板里有多个 {doing} 时每个都按同一套处理`；② `maxLines: 1` 时原来吐 2 行（表头 + `+N more`）破了「`maxLines` 是总行数」的表述，`renderWidget` 给汇总行加 `budget > 0` 条件（预算连表头都装不下就只剩表头），新增用例 `maxLines 为 1 时只剩表头，汇总行也不出`（`maxLines 2` → 表头 + `+2 more`）；`maxLines` 低于 2 在真实配置里不可达（`config.ts` clamp 3–10）
   - 前置：T3
 
 - [ ] T6 index.ts 接线
