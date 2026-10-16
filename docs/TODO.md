@@ -98,12 +98,19 @@
     - audit 一轮（四条）：① token 数改用宿主估算器的口径（3.5 字符/token）并注明 codemode 自己的 4 字符/token 预算口径；② 更正「codemode 整段」的长度定义（374 = 标题 11 + sample 363）并说明 370 的切法；③ 占位符从 `replace` 改成 `replaceAll`（一条 guideline 写多次只替第一处）+ 用例；④ AC1 证据改成「仓库内锚点 = `DEFAULTS` + 测试字面量」，`prompt/` 比对降级为本机一次性核对；另把 AC2 证据里的「与入参一致」写明是校验后的一致（content 已 trim）
   - 前置：T2、T4、T5
 
-- [ ] T7 真机验收
+- [x] T7 真机验收
   - 交付物：一次实跑记录（命令、任务、观察到的 widget 与工具返回值）；发现问题回改对应模块
   - 验收：`pi -e ./index.ts` 起一个 ≥ 3 步任务：表出现在输入框上方；`/todos` 打出清单；模型传 `tasks: []` 后 widget 消失（PLAN AC4）
   - 风险：本机安装的 `@ssk_dev/rpiv-todo-lean` 也注册 `todo` —— 跑之前先卸掉它，或临时把 `tools.todo.name` 改成别的
   - 验收证据指针：
-    - AC4
+    - AC4 真机跑了三次，命令与观察逐条如下（三次都在 `-ne -e ./index.ts` 下：装好的九个扩展全关，绕开 rpiv-todo-lean 抢 `todo`）
+      - ① 登记（headless）：`pi -ne -e ./index.ts -t todo --session-dir <tmp>/sessions -p "帮我规划三步：①读 config.ts ②跑测试 ③写文档。请先用 todo 工具把这个计划登记上去（第一步 in_progress，其余 pending），然后只回一句「已登记」"` —— 会话第 5 条是 toolCall `todo`，参数逐字 `{"tasks":[{"content":"读 config.ts","status":"in_progress"},{"content":"跑测试","status":"pending"},{"content":"写文档","status":"pending"}]}`；第 6 条是 custom `pi-todo-state`，data 同内容；工具返回逐字 `Todo 0/3 · 1 doing\n[-] 读 config.ts\n[ ] 跑测试\n[ ] 写文档`（= `formatTasks` 输出）；模型答「已登记」
+      - ② 清空（同一会话 `--session <file>`）：toolCall `{"tasks":[]}` → 第 11 条 custom `{"tasks":[]}` → 返回逐字 `Todo 0/0`
+      - ③ 真机 TUI（伪终端 + 脚本化按键，用来验「表出现在输入框上方」与「清空后消失」）：`{ sleep 4; printf '用 todo 工具登记三步计划：读 config.ts、跑测试、写文档，第一步 in_progress；不要执行步骤\r'; sleep 45; printf '现在把清单清空：调用 todo 工具，tasks 传空数组 []。\r'; sleep 30; printf '/exit\r'; sleep 6; } | winpty -Xallow-non-tty pi -ne -e ./index.ts -t todo --tui-mode regular --session-dir <tmp>/tui-clear > tui-clear.log` —— 剥掉 ANSI 后 1125 行，widget 四行 `Todo 0/3 · 1 doing` / `[-] 读 config.ts` / `[ ] 跑测试` / `[ ] 写文档` 出现在第 212…662 行（含首次出现的帧 661-665：` todo` 调用行 → widget 四行 → 分隔线与状态行），**第 662 行之后到进程结束的 462 行里这四行不再出现** → 清空后 widget 消失；工具调用显示行 `todo tasks=[{…}]`、`todo tasks=[]` 各一次；模型答「会话结束。todo 清单已清空，未执行任何步骤。」
+      - 「输入框上方」的落地依据（宿主代码，不是我们的断言）：`config.ts:48` 默认 `ui.widget.placement = "aboveEditor"`，交给宿主的是 `ctx.ui.setWidget("todo", factory, { placement })`；宿主的布局挂载顺序是 `modes/interactive/interactive-mode.js:691-699` = document → pendingMessages → status → **widgetContainerAbove** → **editorContainer** → widgetsBelow → footer，`setExtensionWidget` 按 `options?.placement ?? "aboveEditor"`（同文件 1854）把组件塞进 above/below 两个容器之一（1934-1940 `renderWidgets`/`renderWidgetContainer`）
+    - 口径记录：headless（`-p`）下 `ctx.hasUI` 为 false，`draw()` 按设计静默跳过，所以 widget 只能靠真 TUI 验——③ 用 `winpty -Xallow-non-tty` 抓真实终端输出（本机无 tmux）；`--tui-mode regular` 只是让帧落进滚动缓冲便于 grep，用户日常的 `fullscreen` 与它共用同一段 widget 容器装配；`-t todo` 把工具白名单收到我们的工具，模型没有执行步骤的机会（三次跑下来工具调用只有 `todo`）；`--session-dir` 指到临时目录，没往 `~/.pi/agent/sessions` 写会话；`winpty` 报的退出码 58 是 `/exit` 之后 pi 进程的退出码，两次跑一致，不是扩展报错
+    - 观察（非违规，记录备查）：① 宿主对自己的 widget 另有 `MAX_WIDGET_LINES = 10` 上限（`interactive-mode.js:1929` 定义、1871/1874 用，超了会追加 `... (widget truncated)`）——我们的 `maxLines` clamp 在 3–10，撞不到；② rpiv-todo-lean 2.13.10 依赖 `@juicesharp/rpiv-todo` 并注册 `todo`（`index.ts:394 todo(leanPi)`；名字来自 `@juicesharp/rpiv-todo/tool/types.ts:11 TOOL_NAME = "todo"`），还会用 Proxy 改写 `todo` 工具的 description / guidelines / schema（`index.ts:313-331`）——真实（不 `-ne`）环境里两个 `todo` 同名会撞上，本次全程 `-ne` 绕开；同一个包还注册 `/todos` 命令（`@juicesharp/rpiv-todo/index.ts:36`），M2 实现 `/todos` 时同样会撞名；③ RPC 模式文档写明「component factories are ignored」（`docs/rpc-extension-ui.md`），我们的 widget 正是工厂，RPC 下不渲染（TUI 不受影响）
+    - 偏差：验收里的「`/todos` 打出清单」属 M2，本轮跑不了 —— 该子句由 T8 的 AC1 覆盖（同一条命令、同一观察），T7 只按 widget 出现/消失 + 工具返回值收（用户裁决：T7 直接勾）
   - 前置：T6
 
 ## M2 · 命令与配置收口
