@@ -18,6 +18,16 @@ const STATUSES = ["pending", "in_progress", "completed"] as const;
 /** 消息里回显字符串的上限（按 code point 计）：超了截断，别把大段正文灌进错误消息。 */
 const ECHO_LIMIT = 32;
 
+/**
+ * 违规字符：C0/C1 控制符、行分隔符，以及 RLO / ZWSP / BOM 这类不可见格式字符（\p{Cf}，连 ZWJ 组字 emoji 一起）
+ * —— 这里是纯文本，不做任何白名单。
+ */
+const FORBIDDEN_CHARS = /[\p{Cc}\p{Zl}\p{Zp}\p{Cf}]/u;
+const FORBIDDEN_RUN = /[\p{Cc}\p{Zl}\p{Zp}\p{Cf}]+/gu;
+
+/** 一整条转义序列：CSI（`ESC [ 31m`）、OSC（`ESC ] 8;;url BEL`）与单字符的 Fe 转义 —— 只删 ESC 会留下 `[31m` 这种残渣。 */
+const ESCAPE_SEQUENCE = /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\|$)|[@-Z\\-_])/g;
+
 /** 快照的 customType：状态只写这一条账。 */
 const STATE_CUSTOM_TYPE = "pi-todo-state";
 
@@ -83,12 +93,39 @@ function readContent(value: unknown, at: string, options: ValidateOptions, reaso
 		reasons.push(`${at}content is empty`);
 		return undefined;
 	}
+	let ok = true;
+	const forbidden = FORBIDDEN_CHARS.exec(content);
+	if (forbidden !== null) {
+		reasons.push(`${at}content has ${offense(forbidden[0])}`);
+		ok = false;
+	}
 	const length = countChars(content);
 	if (length > options.maxContentChars) {
 		reasons.push(`${at}content is ${length} chars, max is ${options.maxContentChars}`);
-		return undefined;
+		ok = false;
 	}
-	return content;
+	return ok ? content : undefined;
+}
+
+const CHARACTER_NAMES: Record<number, string> = {
+	0x09: "a tab",
+	0x0a: "a newline",
+	0x0d: "a carriage return",
+	0x1b: "an escape character",
+	0x200b: "a zero-width space",
+	0x2028: "a line separator",
+	0x2029: "a paragraph separator",
+	0x202e: "a right-to-left override",
+	0xfeff: "a byte order mark",
+};
+
+/** 违规字符 → 报错里的原因：`a newline (U+000A); keep it one line` / `a right-to-left override (U+202E); keep it plain text`。 */
+function offense(char: string): string {
+	const code = char.codePointAt(0) ?? 0;
+	const wraps = /[\p{Cc}\p{Zl}\p{Zp}]/u.test(char);
+	const what = CHARACTER_NAMES[code] ?? (wraps ? "a control character" : "an invisible character");
+	const fix = wraps ? "keep it one line" : "keep it plain text";
+	return `${what} (U+${code.toString(16).toUpperCase().padStart(4, "0")}); ${fix}`;
 }
 
 function readStatus(value: unknown, at: string, reasons: string[]): Status | undefined {
@@ -135,7 +172,10 @@ export function replayTasks(entries: readonly unknown[]): Task[] {
 	return [];
 }
 
-/** 读一条快照；不是我们的条目、或形状坏了 → undefined（当作没有）。 */
+/**
+ * 读一条快照；不是我们的条目、或形状坏了 → undefined（当作没有）。快照里的控制字符
+ * 压成空格：老账本里留了换行不该让整张表消失。
+ */
 function readSnapshot(entry: unknown): Task[] | undefined {
 	if (!isRecord(entry) || entry.type !== "custom" || entry.customType !== STATE_CUSTOM_TYPE) return undefined;
 
@@ -147,7 +187,7 @@ function readSnapshot(entry: unknown): Task[] | undefined {
 		if (!isRecord(item)) return undefined;
 		if (typeof item.content !== "string") return undefined;
 		if (typeof item.status !== "string" || !(STATUSES as readonly string[]).includes(item.status)) return undefined;
-		const content = item.content.trim();
+		const content = item.content.replace(ESCAPE_SEQUENCE, "").replace(FORBIDDEN_RUN, " ").trim();
 		if (content === "") return undefined;
 		tasks.push({ content, status: item.status as Status });
 	}

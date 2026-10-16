@@ -150,9 +150,77 @@ describe("validateTasks", () => {
 		expect(tasks).toEqual([{ content: "x".repeat(120), status: "completed" }]);
 	});
 
+	it("content 里的控制字符被拒绝，要求单行", () => {
+		expect(captureError(() => validateTasks({ tasks: [{ content: "line1\nline2", status: "pending" }] }, LIMITS))).toBe(
+			"todo: task 1: content has a newline (U+000A); keep it one line",
+		);
+		expect(captureError(() => validateTasks({ tasks: [{ content: "a\tb", status: "pending" }] }, LIMITS))).toBe(
+			"todo: task 1: content has a tab (U+0009); keep it one line",
+		);
+		expect(captureError(() => validateTasks({ tasks: [{ content: "\u001b[31mred", status: "pending" }] }, LIMITS))).toBe(
+			"todo: task 1: content has an escape character (U+001B); keep it one line",
+		);
+		expect(captureError(() => validateTasks({ tasks: [{ content: "a\u2028b", status: "pending" }] }, LIMITS))).toBe(
+			"todo: task 1: content has a line separator (U+2028); keep it one line",
+		);
 	});
 
+	it("content 同时含控制字符又超长时两条都报", () => {
+		expect(captureError(() => validateTasks({ tasks: [{ content: `${"x".repeat(100)}\n${"x".repeat(100)}`, status: "pending" }] }, LIMITS))).toBe(
+			["todo: task 1: content has a newline (U+000A); keep it one line", "todo: task 1: content is 201 chars, max is 120"].join("\n"),
+		);
+	});
+
+	it("不可见格式字符被拒绝：RLO / ZWSP / 软连字符 / BOM", () => {
+		expect(captureError(() => validateTasks({ tasks: [{ content: "a\u202eb", status: "pending" }] }, LIMITS))).toBe(
+			"todo: task 1: content has a right-to-left override (U+202E); keep it plain text",
+		);
+		expect(captureError(() => validateTasks({ tasks: [{ content: "a\u200bb", status: "pending" }] }, LIMITS))).toBe(
+			"todo: task 1: content has a zero-width space (U+200B); keep it plain text",
+		);
+		expect(captureError(() => validateTasks({ tasks: [{ content: "a\ufeffb", status: "pending" }] }, LIMITS))).toBe(
+			"todo: task 1: content has a byte order mark (U+FEFF); keep it plain text",
+		);
+		// 首尾的 BOM 归 trim() 管（U+FEFF 是 JS 的空格），只有夹在中间的才落到这里
+		expect(validateTasks({ tasks: [{ content: " \ufeffa ", status: "pending" }] }, LIMITS)).toEqual([{ content: "a", status: "pending" }]);
+		expect(captureError(() => validateTasks({ tasks: [{ content: "a\u00adb", status: "pending" }] }, LIMITS))).toBe(
+			"todo: task 1: content has an invisible character (U+00AD); keep it plain text",
+		);
+		expect(captureError(() => validateTasks({ tasks: [{ content: "a\u202ab", status: "pending" }] }, LIMITS))).toBe(
+			"todo: task 1: content has an invisible character (U+202A); keep it plain text",
+		);
+	});
+});
+
 describe("replayTasks", () => {
+	it("快照里的控制字符压成空格，不丢整表", () => {
+		const entries = [{ type: "custom", customType: "pi-todo-state", data: { tasks: [{ content: "line1\nline2\t", status: "pending" }] } }];
+
+		expect(replayTasks(entries)).toEqual([{ content: "line1 line2", status: "pending" }]);
+	});
+
+	it("快照里的转义序列整条丢掉，不留 [31m 残渣", () => {
+		const entries = [
+			{
+				type: "custom",
+				customType: "pi-todo-state",
+				data: {
+					tasks: [
+						{ content: "\u001b[31mred\u0000x", status: "pending" },
+						{ content: "\u001b]8;;https://x\u0007link", status: "pending" },
+						{ content: "a\u202eb", status: "pending" },
+					],
+				},
+			},
+		];
+
+		expect(replayTasks(entries)).toEqual([
+			{ content: "red x", status: "pending" },
+			{ content: "link", status: "pending" },
+			{ content: "a b", status: "pending" },
+		]);
+	});
+
 	it("取最后一条有效快照", () => {
 		const entries = [
 			{ type: "custom", customType: "pi-todo-state", data: { tasks: [{ content: "旧", status: "pending" }] } },

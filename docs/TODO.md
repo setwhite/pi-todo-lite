@@ -41,25 +41,28 @@
     - AC2 报错消息带第几条与真实上限（`todo: task 3: content is 128 chars, max is 120`）
     - AC3 返回 trim 过的新数组，不改入参
   - 验收证据指针：
-    - AC1 `test/plan.test.ts`：`空 content 被拒绝` / `超长 content 被拒绝，报 trim 后的长度与真实上限`（121 字符 + 上限改 10 时的 11 字符）/ `超过条数上限被拒绝，报真实上限`（21/20 与 6/5）/ `非法 status 被拒绝`（`"done"`、`5`、缺字段）/ `content 不是字符串被拒绝` / `item 不是对象被拒绝` / `tasks 不是数组被拒绝`（`3`、`"a"`、缺字段）/ `入参不是对象被拒绝`（`null`、数组）/ `未知键被拒绝，不静默剥离`（顶层 `action` 报 `unknown key "action"`、项内 `id` / `activeForm`，含顶层+项内混排的三行消息与 `{tasks: 3, action: "add"}` 的两行消息）/ `长度按 code point 计，emoji 算 1 个`（120 个 😀 = 240 UTF-16 units 通过，121 个报 `content is 121 chars, max is 120`）；拒绝即 `Error`，无部分应用，且用例断言入参未被改动
-    - AC2 `报错带第几条：第三条超长就是 task 3` → 逐字 `todo: task 3: content is 128 chars, max is 120`（TODO/`docs/modules/plan.md` 的示例）；`多条违规一次列完，每条都带工具名前缀`（两条错误、顺序与全文都断言）；`前缀取工具名，不写死 todo`（`toolName: "plan"` 时消息以 `plan: ` 开头且不含 `todo`）；`超长字符串在报错里被截断，不回显全文`（`tasks: "z".repeat(5000)` → 消息 < 100 字符）/ `截断按 code point 切，不切出半个代理对`（`"a" + 😀×20` 不足 32 字符不截，😀×40 截在 31 个 emoji 处）
+    - AC1 `test/plan.test.ts`：`空 content 被拒绝` / `超长 content 被拒绝，报 trim 后的长度与真实上限`（121 字符 + 上限改 10 时的 11 字符）/ `超过条数上限被拒绝，报真实上限`（21/20 与 6/5）/ `非法 status 被拒绝`（`"done"`、`5`、缺字段）/ `content 不是字符串被拒绝` / `item 不是对象被拒绝` / `tasks 不是数组被拒绝`（`3`、`"a"`、缺字段）/ `入参不是对象被拒绝`（`null`、数组）/ `未知键被拒绝，不静默剥离`（顶层 `action` 报 `unknown key "action"`、项内 `id` / `activeForm`，含顶层+项内混排的三行消息与 `{tasks: 3, action: "add"}` 的两行消息）/ `长度按 code point 计，emoji 算 1 个`（120 个 😀 = 240 UTF-16 units 通过，121 个报 `content is 121 chars, max is 120`）/ `content 里的控制字符被拒绝，要求单行`（`\n` / `\t` / ESC / U+2028 各一条，消息按类给名 + U+ 码点）/ `content 同时含控制字符又超长时两条都报`（201 字符含内部换行）/ `不可见格式字符被拒绝：RLO / ZWSP / 软连字符 / BOM`（U+202E、U+200B、U+00AD、U+202A 各一条，消息一律 `an invisible character (U+…)`；U+FEFF 夹在中间，首尾的归 `trim()`）；拒绝即 `Error`，无部分应用，且用例断言入参未被改动
+    - AC2 `报错带第几条：第三条超长就是 task 3` → 逐字 `todo: task 3: content is 128 chars, max is 120`（TODO/`docs/modules/plan.md` 的示例）；`多条违规一次列完，每条都带工具名前缀`（两条错误、顺序与全文都断言）；`前缀取工具名，不写死 todo`（`toolName: "plan"` 时消息以 `plan: ` 开头且不含 `todo`）；`超长字符串在报错里被截断，不回显全文`（`tasks: "z".repeat(5000)` → 消息 < 100 字符）/ `截断按 code point 切，不切出半个代理对`（`"a" + 𠀋×20` 不足 32 字符不截，𠀋×40 截在 31 个字符处 —— U+2000B 是拓展 B 区汉字，同样占 2 个 UTF-16 unit）
     - AC3 `返回 trim 过的新数组，不改入参`（数组与元素都不是同一引用、入参 content 仍带空格）/ `空表合法，返回空数组` / `trim 后正好等于上限算合法`
     - 契约改动（记偏差）：第二参由 `limits: { maxTasks, maxContentChars }` 改为 `options: ValidateOptions`，多一个 `toolName` —— 宿主不会替工具错误加工具名前缀，`createErrorToolResult(error.message)` 原样回给模型，T3-AC2 的示例消息却带 `todo:`，所以前缀只能由配置里的工具名生成；契约已同步 `docs/modules/plan.md`
     - 顺带改动（记偏差）：`describe()` 对容器改为只说形状（`array of 21`、`object with keys a, b`），不再 `JSON.stringify` 回显正文 —— 否则 20 项任务表会被原样拼进错误消息；`config.ts` 用同款实现，`test/config.test.ts` 的一条期望随之改为 `plan: expected object, got array of 0`（用例名不变）
     - audit 追修（三条）：`describe()` 的字符串分支也加了 32 字符截断（内容说形状后字符串成唯一漏洞，`config.ts` 同步、新增用例 `超长字符串在报错里被截断，不回显全文`）；长度口径定为 **Unicode code point**（`Array.from(content).length`），并把口径写进 `docs/PLAN.md:28,36`、`docs/CONFIG.md:23`、`docs/modules/plan.md`；未知键在顶层与项内都拒绝，不再静默剥离（消息 `unknown key "<键>"`，用引号区分路径式写法，顺序固定在项数之前/项内最后）
+    - audit 三轮（由 T4 审计牵出）：content 单行规则落进 `readContent` —— 命中 `\p{Cc}` / `\p{Zl}` / `\p{Zp}`（\n、\t、ESC、U+2028）报 `content has a control character (U+000A); keep it one line`；同一字段的多个问题（控制字符 + 超长）现在两条都报。规则已同步 `docs/PLAN.md`、`docs/CONFIG.md`、`docs/modules/plan.md`
+    - audit 四轮（两条，收口）：① `\p{Cf}` 从「整类放行」改成整类拒绝 —— RLO / ZWSP / 软连字符 / BOM 都进拒绝集（消息尾部按类分「keep it one line」/「keep it plain text」），不做 ZWJ / ZWNJ / 变体选择符白名单，理由：这里是纯文本，单码点 emoji（😀）本就不含 `\p{Cf}`，组字 emoji 与 VS16 被拒后模型改写即可；② 回放侧转义序列整条丢（CSI / OSC / 单字符 Fe），不再留 `[31m` 残渣
     - audit 重审（三条）：`echo()` 改按 code point 切（`Array.from` + `slice` 后 `join`），不再可能切出孤立代理对，`config.ts` 同款；`tasks` 不是数组并入 reasons 列表、不再单行早退（`{tasks: 3, action: "add"}` 一次报两条，模型不必等下一轮）；AC 归类改正 —— code point / emoji 那条从 AC3 移回 AC1
   - 前置：T1
 
-- [x] T4 plan.ts 回放与文本
+- [ ] T4 plan.ts 回放与文本
   - 交付物：`replayTasks`、`formatTasks`、`test/plan.test.ts` 续
   - 验收：
     - AC1 一串 entries（中间混入坏条目）取到最后一条有效快照；一条都没有 → `[]`（PLAN AC2）
     - AC2 只认 `type: "custom"` + `customType: "pi-todo-state"`，不读 toolResult 的 details
     - AC3 `formatTasks` 空表 → `Todo 0/0`；非空 → 一行进度 + 每项一行带 `[ ]` / `[-]` / `[x]`
   - 验收证据指针：
-    - AC1 `test/plan.test.ts`：`取最后一条有效快照`（3 条 entries，取第三条、且不是同一引用）/ `坏快照跳过，继续往前扫`（6 种坏形状：缺 `data`、`data: null`、`tasks: "x"`、status 非法、content trim 后为空、项是字符串）/ `一条快照都没有时是空表`（`[]` 与只有别的 customType）/ `快照里多余字段丢掉，content trim 后带出`；条目形态取自宿主 `CustomEntry { type: "custom"; customType; data? }`（`dist/core/session-manager.d.ts:80-84`）
+    - AC1 `test/plan.test.ts`：`取最后一条有效快照`（3 条 entries，取第三条、且不是同一引用）/ `坏快照跳过，继续往前扫`（6 种坏形状：缺 `data`、`data: null`、`tasks: "x"`、status 非法、content trim 后为空、项是字符串）/ `一条快照都没有时是空表`（`[]` 与只有别的 customType）/ `快照里多余字段丢掉，content trim 后带出` / `快照里的控制字符压成空格，不丢整表`（`line1\nline2\t` → `line1 line2`）/ `快照里的转义序列整条丢掉，不留 [31m 残渣`（CSI + NUL → `red x`、OSC 超链接 → `link`、RLO 压平）；条目形态取自宿主 `CustomEntry { type: "custom"; customType; data? }`（`dist/core/session-manager.d.ts:80-84`）
     - AC2 `只认 type: custom + customType: pi-todo-state，不读 toolResult 的 details`：三个诱饵（`{type:"message", role:"toolResult", details:{tasks}}`、`{type:"custom_message", customType:"pi-todo-state", details:{tasks}}`、customType 近似的 `pi-todo-state-extra`）单独回放都是空表；真快照排在最前时回放真快照
     - AC3 `空表只给一行 Todo 0/0` / `非空表：一行进度 + 每项一行带字形`（三态各一行，逐字 `Todo 1/3 · 1 doing` + `[ ] write tests` + `[-] implement` + `[x] ship`）/ `doing 为 0 时省略 · N doing`（`Todo 1/2`）
+    - audit 一轮（一条）：content 里的 `\n` 把「每项一行」打成多行（1 条任务出 3 行、第二行没字形），`\t` 与 ANSI 也原样进文本，而 T4-AC3 的形状与 T5-AC1 的行数预算都建立在一项一行上 —— 规则没有加在渲染侧，而是落在数据入口：`validateTasks` 拒绝控制字符（模型能重写），`replayTasks` 整条丢弃转义序列、其余压成空格（旧账不整表消失），`Task.content` 单行无控制字符与不可见字符成为不变量（详见 T3 的 audit 三轮、四轮）
     - 口径记录：`replayTasks` 对 content 也 trim，保住「`Task.content` 一律 trim 过」的不变量；`formatTasks` 的进度行 `Todo {done}/{total} · {doing} doing`（doing 为 0 时省略后半段）与 `view.ts` 表头同规则，但 view 按契约只从 plan.ts 取类型、自己实现模板 —— 是同规则的两份拷贝，不是共享函数
   - 前置：T3
 
