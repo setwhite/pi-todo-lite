@@ -15,6 +15,19 @@ export type ValidateOptions = {
 
 const STATUSES = ["pending", "in_progress", "completed"] as const;
 
+/** 消息里回显字符串的上限（按 code point 计）：超了截断，别把大段正文灌进错误消息。 */
+const ECHO_LIMIT = 32;
+
+/** 快照的 customType：状态只写这一条账。 */
+const STATE_CUSTOM_TYPE = "pi-todo-state";
+
+/** 三态各自的字形。 */
+const GLYPHS: Record<Status, string> = {
+	pending: "[ ]",
+	in_progress: "[-]",
+	completed: "[x]",
+};
+
 /**
  * 校验一次整表提交。全有或全无：任一项不合规就抛 Error，消息按条列出全部违规
  * （每条前缀 `<toolName>: `，逐行），返回的是 trim 过的新数组，不改入参。
@@ -104,10 +117,53 @@ function describe(value: unknown): string {
 	return `object with keys ${keys.length === 0 ? "(none)" : keys.join(", ")}`;
 }
 
-/** 回显字符串的上限（按 code point 计）：超了截断，别把大段正文灌进错误消息。 */
-const ECHO_LIMIT = 32;
-
 function echo(value: string): string {
 	const chars = Array.from(value);
 	return chars.length <= ECHO_LIMIT ? JSON.stringify(value) : `${JSON.stringify(chars.slice(0, ECHO_LIMIT).join(""))}…`;
 }
+
+/**
+ * 从会话条目里回放状态：从后往前找**最后一条有效快照**，坏条目跳过继续往前扫，
+ * 一条都没有就是空表。只认 `type: "custom"` + `customType: "pi-todo-state"` 的
+ * `data.tasks`，不读 toolResult 的 details。
+ */
+export function replayTasks(entries: readonly unknown[]): Task[] {
+	for (let index = entries.length - 1; index >= 0; index -= 1) {
+		const tasks = readSnapshot(entries[index]);
+		if (tasks !== undefined) return tasks;
+	}
+	return [];
+}
+
+/** 读一条快照；不是我们的条目、或形状坏了 → undefined（当作没有）。 */
+function readSnapshot(entry: unknown): Task[] | undefined {
+	if (!isRecord(entry) || entry.type !== "custom" || entry.customType !== STATE_CUSTOM_TYPE) return undefined;
+
+	const data = entry.data;
+	if (!isRecord(data) || !Array.isArray(data.tasks)) return undefined;
+
+	const tasks: Task[] = [];
+	for (const item of data.tasks) {
+		if (!isRecord(item)) return undefined;
+		if (typeof item.content !== "string") return undefined;
+		if (typeof item.status !== "string" || !(STATUSES as readonly string[]).includes(item.status)) return undefined;
+		const content = item.content.trim();
+		if (content === "") return undefined;
+		tasks.push({ content, status: item.status as Status });
+	}
+	return tasks;
+}
+
+/** 工具返回给模型的文本：一行进度 + 每项一行（`[ ]` / `[-]` / `[x]`）。空表就只有那行进度。 */
+export function formatTasks(tasks: readonly Task[]): string {
+	return [progressLine(tasks), ...tasks.map((task) => `${GLYPHS[task.status]} ${task.content}`)].join("\n");
+}
+
+/** `Todo {done}/{total}`；有 in_progress 才补 `· {doing} doing`（与 widget 表头同一规则）。 */
+function progressLine(tasks: readonly Task[]): string {
+	const done = tasks.filter((task) => task.status === "completed").length;
+	const doing = tasks.filter((task) => task.status === "in_progress").length;
+	const counts = `Todo ${done}/${tasks.length}`;
+	return doing === 0 ? counts : `${counts} · ${doing} doing`;
+}
+

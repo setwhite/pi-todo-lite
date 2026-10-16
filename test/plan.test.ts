@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateTasks } from "../plan.ts";
+import { formatTasks, replayTasks, validateTasks } from "../plan.ts";
 
 const LIMITS = { toolName: "todo", maxTasks: 20, maxContentChars: 120 };
 
@@ -149,4 +149,90 @@ describe("validateTasks", () => {
 
 		expect(tasks).toEqual([{ content: "x".repeat(120), status: "completed" }]);
 	});
+
+	});
+
+describe("replayTasks", () => {
+	it("取最后一条有效快照", () => {
+		const entries = [
+			{ type: "custom", customType: "pi-todo-state", data: { tasks: [{ content: "旧", status: "pending" }] } },
+			{ type: "message", role: "user" },
+			{ type: "custom", customType: "pi-todo-state", data: { tasks: [{ content: "新", status: "in_progress" }, { content: "二", status: "pending" }] } },
+		];
+		const tasks = replayTasks(entries);
+
+		expect(tasks).toEqual([
+			{ content: "新", status: "in_progress" },
+			{ content: "二", status: "pending" },
+		]);
+		expect(tasks).not.toBe((entries[2] as { data: { tasks: unknown } }).data.tasks);
+	});
+
+	it("坏快照跳过，继续往前扫", () => {
+		const good = { type: "custom", customType: "pi-todo-state", data: { tasks: [{ content: "好", status: "completed" }] } };
+		const broken = [
+			{ type: "custom", customType: "pi-todo-state" },
+			{ type: "custom", customType: "pi-todo-state", data: null },
+			{ type: "custom", customType: "pi-todo-state", data: { tasks: "x" } },
+			{ type: "custom", customType: "pi-todo-state", data: { tasks: [{ content: "a", status: "done" }] } },
+			{ type: "custom", customType: "pi-todo-state", data: { tasks: [{ content: "  ", status: "pending" }] } },
+			{ type: "custom", customType: "pi-todo-state", data: { tasks: ["a"] } },
+		];
+
+		for (const entry of broken) expect(replayTasks([good, entry])).toEqual([{ content: "好", status: "completed" }]);
+	});
+
+	it("一条快照都没有时是空表", () => {
+		expect(replayTasks([])).toEqual([]);
+		expect(
+			replayTasks([
+				{ type: "message", role: "user" },
+				{ type: "custom", customType: "pi-other-state", data: { tasks: [{ content: "a", status: "pending" }] } },
+			]),
+		).toEqual([]);
+	});
+
+	it("只认 type: custom + customType: pi-todo-state，不读 toolResult 的 details", () => {
+		const decoys = [
+			{ type: "message", role: "toolResult", details: { tasks: [{ content: "d", status: "pending" }] } },
+			{ type: "custom_message", customType: "pi-todo-state", content: "…", display: false, details: { tasks: [{ content: "d", status: "pending" }] } },
+			{ type: "custom", customType: "pi-todo-state-extra", data: { tasks: [{ content: "d", status: "pending" }] } },
+		];
+		const snapshot = { type: "custom", customType: "pi-todo-state", data: { tasks: [{ content: "真", status: "pending" }] } };
+
+		for (const decoy of decoys) expect(replayTasks([decoy])).toEqual([]);
+		expect(replayTasks([snapshot, ...decoys])).toEqual([{ content: "真", status: "pending" }]);
+	});
+
+	it("快照里多余字段丢掉，content trim 后带出", () => {
+		const entries = [{ type: "custom", customType: "pi-todo-state", data: { tasks: [{ content: " a ", status: "pending", id: 7, activeForm: "x" }] } }];
+
+		expect(replayTasks(entries)).toEqual([{ content: "a", status: "pending" }]);
+	});
 });
+
+describe("formatTasks", () => {
+	it("空表只给一行 Todo 0/0", () => {
+		expect(formatTasks([])).toBe("Todo 0/0");
+	});
+
+	it("非空表：一行进度 + 每项一行带字形", () => {
+		const text = formatTasks([
+			{ content: "write tests", status: "pending" },
+			{ content: "implement", status: "in_progress" },
+			{ content: "ship", status: "completed" },
+		]);
+
+		expect(text).toBe(["Todo 1/3 · 1 doing", "[ ] write tests", "[-] implement", "[x] ship"].join("\n"));
+	});
+
+	it("doing 为 0 时省略 · N doing", () => {
+		const text = formatTasks([
+			{ content: "a", status: "pending" },
+			{ content: "b", status: "completed" },
+		]);
+
+		expect(text).toBe(["Todo 1/2", "[ ] a", "[x] b"].join("\n"));
+	});
+});
+

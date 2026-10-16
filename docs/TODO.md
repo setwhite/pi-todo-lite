@@ -50,16 +50,17 @@
     - audit 重审（三条）：`echo()` 改按 code point 切（`Array.from` + `slice` 后 `join`），不再可能切出孤立代理对，`config.ts` 同款；`tasks` 不是数组并入 reasons 列表、不再单行早退（`{tasks: 3, action: "add"}` 一次报两条，模型不必等下一轮）；AC 归类改正 —— code point / emoji 那条从 AC3 移回 AC1
   - 前置：T1
 
-- [ ] T4 plan.ts 回放与文本
+- [x] T4 plan.ts 回放与文本
   - 交付物：`replayTasks`、`formatTasks`、`test/plan.test.ts` 续
   - 验收：
     - AC1 一串 entries（中间混入坏条目）取到最后一条有效快照；一条都没有 → `[]`（PLAN AC2）
     - AC2 只认 `type: "custom"` + `customType: "pi-todo-state"`，不读 toolResult 的 details
     - AC3 `formatTasks` 空表 → `Todo 0/0`；非空 → 一行进度 + 每项一行带 `[ ]` / `[-]` / `[x]`
   - 验收证据指针：
-    - AC1
-    - AC2
-    - AC3
+    - AC1 `test/plan.test.ts`：`取最后一条有效快照`（3 条 entries，取第三条、且不是同一引用）/ `坏快照跳过，继续往前扫`（6 种坏形状：缺 `data`、`data: null`、`tasks: "x"`、status 非法、content trim 后为空、项是字符串）/ `一条快照都没有时是空表`（`[]` 与只有别的 customType）/ `快照里多余字段丢掉，content trim 后带出`；条目形态取自宿主 `CustomEntry { type: "custom"; customType; data? }`（`dist/core/session-manager.d.ts:80-84`）
+    - AC2 `只认 type: custom + customType: pi-todo-state，不读 toolResult 的 details`：三个诱饵（`{type:"message", role:"toolResult", details:{tasks}}`、`{type:"custom_message", customType:"pi-todo-state", details:{tasks}}`、customType 近似的 `pi-todo-state-extra`）单独回放都是空表；真快照排在最前时回放真快照
+    - AC3 `空表只给一行 Todo 0/0` / `非空表：一行进度 + 每项一行带字形`（三态各一行，逐字 `Todo 1/3 · 1 doing` + `[ ] write tests` + `[-] implement` + `[x] ship`）/ `doing 为 0 时省略 · N doing`（`Todo 1/2`）
+    - 口径记录：`replayTasks` 对 content 也 trim，保住「`Task.content` 一律 trim 过」的不变量；`formatTasks` 的进度行 `Todo {done}/{total} · {doing} doing`（doing 为 0 时省略后半段）与 `view.ts` 表头同规则，但 view 按契约只从 plan.ts 取类型、自己实现模板 —— 是同规则的两份拷贝，不是共享函数
   - 前置：T3
 
 - [ ] T5 view.ts widget 行
