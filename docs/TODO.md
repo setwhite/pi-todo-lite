@@ -159,24 +159,30 @@
     - audit 一轮：import 的目标取子命令后面**整段原文**（连续空格是路径的一部分），只剥一层配对引号 —— 单测 `路径里的连续空格是路径的一部分，配对引号会被剥掉`（`a  b.md` 与 `"a  b.md"` 都能读）；真机 `rpc-c.log` 两条 `Imported 1 task from …\a  b.md` 逐字 —— 原来的 `split(/\s+/)` + `rest.join(" ")` 会把双空格折成一个
   - 前置：T9
 
-- [ ] T11 折叠键
+- [x] T11 折叠键
   - 交付物：`ui.shortcut.toggle` 接线（默认 `alt+t`）
   - 验收：
     - AC1 按键后 widget 收起 / 展开，状态不丢
     - AC2 配置成 `off` 时不注册按键
   - 验收证据指针：
-    - AC1
-    - AC2
+    - AC1 `test/index.test.ts` 的 `index：折叠键（T11）` 三条：`按一次收起、再按一次展开：widget 消失又回来，任务表一寸不动`（`widgets.at(-1)?.content` 变 `undefined`、`lines(80)` 变 `[]`、最后一条 entry 一字不动、再按回来正好是 `["Todo 1/2", "[ ] a", "[x] b"]`）、`收起之后会话事件照旧回放，但 widget 保持收起`、以及 `Toggle the todo widget` 的 description
+    - AC1 真机 TUI（winpty 抓包，`%LOCALAPPDATA%\Temp\pi-todo-rpc\work-tui2\tui-toggle2.log`，566 行）：498-501 行是全展开的 widget 四行（`Todo 1/3 · 1 doing` + 三条）→ 打标记键 `x`（507 行编辑器里是 `x`）→ 第一次 `\x1bt`（alt+t）后 515-518 行只剩 3 行空白、编辑器 `xy`（widget 区域被清掉）→ 526-529 行 widget 四行又回来（编辑器仍是 `xy`，说明是第二次 alt+t 展开的）→ 之后编辑器到 `xyz`
+    - AC1 口径记录：pi 的 TUI 写的是增量重画，**某一帧里没有 widget 不等于 widget 不在**，所以判据用「原来 widget 的位置变成空白」+「稍后又出现」这对组合；这一段没有任何工具调用（后半段日志里没有 `todo` 调用、表内容始终 `Todo 1/3 · 1 doing`），消失只能是按键造成的。第一次跑的那份 `work-tui\tui-toggle.log`（1105 行）序列里 `.0 / W3` 交替、末尾停在无 widget 的空白，结论一致 —— 那次命令行把 `PI_CODING_AGENT_SESSION_DIR` 误写成位置参数、会话落在默认目录，后两次都改成先 `export` 隔离了
+    - AC2 `test/index.test.ts` 的 `配置成 off：压根不注册按键`（`ui.shortcut.toggle: "off"` → `harnessed.shortcuts` 是 `[]`）；默认值时注册的是 `alt+t` + `description: "Toggle the todo widget"`，真机跑证明 pi 认这个键并把事件交到 handler
   - 前置：T6
 
-- [ ] T12 配置收口
+- [x] T12 配置收口
   - 交付物：21 键全部被代码实际读到；`docs/CONFIG.md` 的样例 JSON 与 `config.ts` 默认值逐字一致
   - 验收：
     - AC1 逐键对照三处（`docs/CONFIG.md` 键表 / `config.ts` / 样例 JSON），无偏差
     - AC2 没有「只写在文档里没实现」的键，也没有「实现了没登记」的键
   - 验收证据指针：
-    - AC1
-    - AC2
+    - AC1 `test/docs.test.ts` 三条（新文件）：`键表正好 21 行，且每个叶子键都有登记（glyphs 这种子对象允许写成一行）`、`键表里的默认值与 DEFAULTS 逐字一致；剩下三格是散文，点名看着`、`样例 JSON 的每个键都在 DEFAULTS 里，值逐字一致（guidance 三格是占位符）`。灵敏度探针（改文档再跑，然后 `git checkout` 还原）：把 `ui.widget.maxLines` 的默认值从 `9` 改成 `8` → `AssertionError: ui.widget.maxLines: expected 8 to deeply equal 9`；删掉 `lifecycle.onFinish` 那一行 → `expected 20 to be 21`；还原后 3 passed
+    - AC2 21 键的消费者（原来缺的 4 个已在 T11/T12 补齐）：`tools.todo.name` → `index.ts` 的 `toolName`；`plan.maxTasks` / `plan.maxSubjectChars` / `plan.requireSingleInProgress` → `validateTasks` 的三个选项（`plan.ts` 用、`index.ts` 喂）；`ui.widget.enabled` / `placement` → `draw`；`ui.widget.maxLines` / `header` / `glyphs` / `showCompleted` → `widgetConfig`（`view.ts` 的 `renderWidget`）；`ui.widget.completedStyle` → `index.ts` 的 `styleCompleted`（`theme.strikethrough` / `theme.style({ dim: true })` / 原样）→ `view.ts` 的 `styleCompleted` 钩子；`ui.shortcut.toggle` → `registerShortcut` 前的判断；`lifecycle.onFinish` → `agent_settled` 注册前的判断（`fade`）；`commands.todos.enabled` / `commands.export.*` / `commands.import.enabled` → `/todos` 的四个分支；`guidance.description` / `promptSnippet` / `promptGuidelines` → `registerTool` 的三个字段。反向检查由 `test/docs.test.ts` 第一条承担（表里每一行都得管着至少一个叶子键）
+    - AC2 本轮新写的三个消费者各自的单测：`plan.requireSingleInProgress`（`test/plan.test.ts` 三条 + `test/index.test.ts` 一条：`plan.requireSingleInProgress: true 时两条 in_progress 被 plan.ts 拦下，不落账`）、`ui.widget.completedStyle`（`test/view.test.ts` 三条含「先截断再套样式」+ `test/index.test.ts` 一条 `strikethrough / dim / plain` 三态）、`lifecycle.onFinish: "fade"`（`test/index.test.ts` 两条：全完成才收、空表不动、`model` / `keep` 压根不监听 `agent_settled`）
+    - 口径记录：键表允许把子对象写成一行（`ui.widget.glyphs` 一行管 3 个叶子），所以对照测试按「叶子自己或它的祖先在表里」判定 —— `DEFAULTS` 摊平是 23 个叶子、键表是 21 行；表里三格是散文（`plan.requireSingleInProgress` / `guidance.description` / `guidance.promptGuidelines`）写不进 JSON，测试里点名列出、值靠人看；样例 JSON 的 `guidance.*` 是占位符，只对键不对值
+    - 口径记录：真机 TUI 抓包里样式序列（`\x1b[9m` / `[2m` / `[1m`）计数全是 0 —— 不是没生效，而是 pi 的样式方法走 chalk，抓包时 pi 的 stdout 是管道、chalk level 0（probe：无 `FORCE_COLOR` 时 `chalk.strikethrough("x")` 就是 `"x"`、level=0；`FORCE_COLOR=3` 时是 SGR 9 包着的、level=3）。所以 completedStyle 的可见效果得在真人终端里看，代码路径由单测覆盖
+    - 真机（同一批 TUI 跑，工具白名单 `-t todo`）：`work-tui3\tui-toggle3.log`（95 行）里 `/todos import tasks.md` 不用模型调用就把表建起来 —— notify `Imported 2 tasks from …\tasks.md`、widget 立刻是 `Todo 1/2` + `[x] 读 config.ts` + `[ ] 写文档`；这条同时把 T10 的 import 与 T12 的 widget 路径在真 TUI 里跑了一遍
   - 前置：T2、T8–T11
 
 ## M3 · 发布
