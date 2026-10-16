@@ -28,8 +28,8 @@ const FORBIDDEN_RUN = /[\p{Cc}\p{Zl}\p{Zp}\p{Cf}]+/gu;
 /** 一整条转义序列：CSI（`ESC [ 31m`）、OSC（`ESC ] 8;;url BEL`）与单字符的 Fe 转义 —— 只删 ESC 会留下 `[31m` 这种残渣。 */
 const ESCAPE_SEQUENCE = /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\|$)|[@-Z\\-_])/g;
 
-/** 快照的 customType：状态只写这一条账。 */
-const STATE_CUSTOM_TYPE = "pi-todo-state";
+/** 会话里快照条目的 customType：状态只写这一条账，index.ts 写、replayTasks 读。 */
+export const STATE_CUSTOM_TYPE = "pi-todo-state";
 
 /** 三态各自的字形。 */
 const GLYPHS: Record<Status, string> = {
