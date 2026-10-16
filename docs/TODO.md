@@ -18,7 +18,7 @@
     - AC2 `git check-ignore -v node_modules` → `.gitignore:1:node_modules/`
   - 前置：无
 
-- [ ] T2 config.ts
+- [x] T2 config.ts
   - 交付物：`config.ts`（21 键的类型、默认值、校验、clamp）、`test/config.test.ts`
   - 验收：
     - AC1 文件不存在 → 全默认值，不报错
@@ -26,10 +26,12 @@
     - AC3 数值越界 clamp 到区间，不报错
     - AC4 路径优先级：入参 `configPath` > `$PI_CODING_AGENT_DIR` > `~/.pi/agent`
   - 验收证据指针：
-    - AC1
-    - AC2
-    - AC3
-    - AC4
+    - AC1 `test/config.test.ts`：`配置文件缺失时全部取默认值，不报错` / `部分字段缺省时其余沿用默认值，嵌套对象逐键合并` / `每次返回独立对象，改返回值不动 DEFAULTS`
+    - AC2 用例：`JSON 损坏：报绝对路径与 invalid JSON` / `顶层不是对象：报 expected object, got <值>` / `对象位置放数组或标量：报字段路径 + expected object` / `未知键在任意层级都报完整字段路径` / `类型错按 expected <类型>, got <值> 报，字符串带回引号` / `布尔与非整数都按类型错拒绝` / `枚举错列出全部合法值` / `工具名不合法时代码报字段路径` / `字符串数组逐元素报下标` / `多处错误一次列完，不半途而废`（4 条错误的顺序也断言了）
+    - AC3 用例：`数值越界 clamp 到上界，不报错`（500→200、1000→400、50→10）/ `数值越界 clamp 到下界，不报错`（0→1、1→3）/ `区间内的数值原样保留`
+    - AC4 用例：`configPath 优先于 $PI_CODING_AGENT_DIR`（9 赢 7）/ `$PI_CODING_AGENT_DIR 优先于 ~/.pi/agent`（读到 7）/ `都没有时落到 ~/.pi/agent/pi-todo/config.json`（走 `resolveConfigPath`）/ `$PI_CODING_AGENT_DIR 是相对路径时按 cwd 解析成绝对路径` / `$PI_CODING_AGENT_DIR 指向的目录没有配置文件时取默认值`
+    - 契约新增两个导出：`DEFAULTS`、`resolveConfigPath`（home 分支不起文件才可测），契约与取舍已同步 `docs/modules/config.md`；多条错误用 `\n` 连接（首条带 `pi-todo config <路径>:` 前缀），非整数按类型错拒绝，部分对象逐键与默认值合并
+    - audit 追修（两条）：`resolveConfigPath` 对 `$PI_CODING_AGENT_DIR` 也走 `resolve()`，相对 env 的错误消息实测为绝对路径；`docs/PLAN.md:39,107`、`docs/CONFIG.md:67,69` 的 description 字符数 39 → 37（`config.ts` 于 `prompt/my prompt new/description.md` 正文逐字一致，实测 37），guidelines 标成「占位符 146 / 替成 `todo` 后 136」
   - 前置：T1
 
 - [ ] T3 plan.ts 校验
