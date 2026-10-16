@@ -34,7 +34,7 @@
     - audit 追修（两条）：`resolveConfigPath` 对 `$PI_CODING_AGENT_DIR` 也走 `resolve()`，相对 env 的错误消息实测为绝对路径；`docs/PLAN.md:39,107`、`docs/CONFIG.md:67,69` 的 description 字符数 39 → 37（`config.ts` 于 `prompt/my prompt new/description.md` 正文逐字一致，实测 37），guidelines 标成「占位符 146 / 替成 `todo` 后 136」；`describe()` 对容器只说形状、对 32 字符以上字符串截断（T3 audit 追修同款，`test/config.test.ts` 的 `超长字符串在报错里被截断，不回显全文` 覆盖，含 emoji 代理对的切法）
   - 前置：T1
 
-- [ ] T3 plan.ts 校验
+- [x] T3 plan.ts 校验
   - 交付物：`plan.ts` 的 `Status` / `Task` / `validateTasks`、`test/plan.test.ts`
   - 验收：
     - AC1 空 content、121 字符、21 项、非法 status、`tasks` 非数组 —— 全部拒绝且抛 `Error`（PLAN AC1）
