@@ -109,7 +109,7 @@ describe("loadConfig", () => {
 	it("对象位置放数组或标量：报字段路径 + expected object", () => {
 		const arrayPath = writeConfig(JSON.stringify({ plan: [] }));
 
-		expect(captureError(() => loadConfig({ configPath: arrayPath, env: {} }))).toBe(`pi-todo config ${arrayPath}: plan: expected object, got []`);
+		expect(captureError(() => loadConfig({ configPath: arrayPath, env: {} }))).toBe(`pi-todo config ${arrayPath}: plan: expected object, got array of 0`);
 	});
 
 	it("未知键在任意层级都报完整字段路径", () => {
@@ -124,6 +124,20 @@ describe("loadConfig", () => {
 		const path = writeConfig(JSON.stringify({ ui: { widget: { maxLines: "9" } } }));
 
 		expect(captureError(() => loadConfig({ configPath: path, env: {} }))).toBe(`pi-todo config ${path}: ui.widget.maxLines: expected number, got "9"`);
+	});
+
+	it("超长字符串在报错里被截断，不回显全文", () => {
+		const path = writeConfig(JSON.stringify({ ui: { widget: { maxLines: "9".repeat(500) } } }));
+		const message = captureError(() => loadConfig({ configPath: path, env: {} }));
+
+		expect(message).toBe(`pi-todo config ${path}: ui.widget.maxLines: expected number, got ${JSON.stringify("9".repeat(32))}…`);
+		expect(message.length).toBeLessThan(200);
+
+		const emojiPath = writeConfig(JSON.stringify({ ui: { widget: { maxLines: "a" + "😀".repeat(40) } } }));
+
+		expect(captureError(() => loadConfig({ configPath: emojiPath, env: {} }))).toBe(
+			`pi-todo config ${emojiPath}: ui.widget.maxLines: expected number, got ${JSON.stringify("a" + "😀".repeat(31))}…`,
+		);
 	});
 
 	it("布尔与非整数都按类型错拒绝", () => {

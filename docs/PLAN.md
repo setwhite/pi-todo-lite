@@ -25,7 +25,7 @@
 | 交付形态：npm 包 `pi-todo-lite`，`pi.extensions` 指向 `./index.ts`；开发期用 `pi -e ./index.ts` | 你定了要发；开发期免安装、免构建 | `docs/packages.md`、`docs/cli.md` |
 | 代码按功能切：`index.ts` 接线、`plan.ts` 计划语义、`view.ts` 显示、`config.ts` 配置 | 不按技术分层；加命令时只碰一个文件 | 你拍板 |
 | 协议：单工具 `todo`，参数 `tasks: [{content, status}]` 整表替换；无 id、无 key、无 action、无 baseVersion | 一次调用能表达「1 完成 + 2 开工」；没有 id 就没有删后漂移，也不用教模型起名 | 对照 `rpiv/tool/types.ts:94-137`（12 字段那套） |
-| 校验：content trim 后非空且 ≤ 120 字符、status 三选一、≤ 20 项；任一条不合格整次调用失败 | 全有或全无，模型立刻知道被拒，不会基于幻觉往下推 | 你拍板（20 / 120） |
+| 校验：content trim 后非空且 ≤ 120 字符（Unicode code point 计，emoji 算 1）、status 三选一、≤ 20 项、未知键拒绝；任一条不合格整次调用失败 | 全有或全无，模型立刻知道被拒，不会基于幻觉往下推 | 你拍板（20 / 120） |
 | 状态载体：每次变化 `pi.appendEntry("pi-todo-state", { tasks })`，**不**写 tool result 的 `details` | `codemode.mode: "only"` 下模型经脚本调工具，嵌套调用不产生 toolResult，只靠 details 回放会丢状态 | `docs/extensions.md:149`、`docs/codemode.md:52`、对照 `rpiv/todo.ts:83-87` |
 | 回放：`session_start` / `session_compact` / `session_tree` 扫 `getBranch()`，取最后一条 `type:"custom"` + `customType:"pi-todo-state"` 的有效快照；坏条目跳过继续往前扫 | 分支天然正确、抗 compaction；单一写入路径，不用两边比对 | `docs/session-format.md:166-172,226-248` |
 | UI：`setWidget("todo", 组件工厂, { placement: "aboveEditor" })`，表空传 `undefined` 让 widget 消失 | 常驻可见；组件工厂才能按终端列宽截断、自己控行预算 | `dist/core/extensions/types.d.ts:101`、对照 `rpiv/todo-overlay.ts:144` |
@@ -62,10 +62,11 @@
 | 字段 | 必填 | 约束 |
 |---|---|---|
 | `tasks` | 是 | 数组，≤ 20 项；顺序即显示顺序；`[]` 表示清空 |
-| `tasks[].content` | 是 | trim 后非空，≤ 120 字符 |
+| `tasks[].content` | 是 | trim 后非空，≤ 120 字符（code point 计，emoji 算 1） |
 | `tasks[].status` | 是 | `pending` \| `in_progress` \| `completed`；不做 `deleted`（删 = 不出现在表里） |
 
 - 全有或全无：任一项不合规就报错，状态一动不动，模型重写。
+- 未知键直接拒绝：`{tasks, action}` 或项里带 `id` / `activeForm` 都报错，不静默剥离 —— rpiv 那套 12 字段的协议混进来会被点名。
 - 「正在做」**不设条数上限**（你拍板），并行开几条都行，表头的 `· N doing` 就是它的表达方式。
 - 返回值：文本 = 完整清单（`[ ]` / `[-]` / `[x]` 前缀）+ 一行进度，供模型自查。
 - 状态落盘只走 `pi.appendEntry`，与返回值无关。

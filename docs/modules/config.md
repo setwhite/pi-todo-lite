@@ -14,7 +14,7 @@ export function loadConfig(options?: LoadOptions): Config;
 
 - 路径优先级：`options.configPath` > `$PI_CODING_AGENT_DIR` > `~/.pi/agent`，后两级都拼 `pi-todo/config.json`。两个入参若是相对路径都按 cwd 解析，返回值与错误消息里的路径一律绝对。
 - 文件不存在（ENOENT）：全默认值，不报错；其它 fs 错误（EACCES、EISDIR 等）原样抛出，不包装。
-- JSON 坏、未知键、类型或枚举错：抛 `Error`，首行 `pi-todo config <绝对路径>: <字段路径>: <原因>`，后续每条错误占一行（`\n` 连接），一次列完；顶层不是对象时报 `expected object, got <值>`。
+- JSON 坏、未知键、类型或枚举错：抛 `Error`，首行 `pi-todo config <绝对路径>: <字段路径>: <原因>`，后续每条错误占一行（`\n` 连接），一次列完；顶层不是对象时报 `expected object, got <值>`。回显的值有界：字符串超过 32 字符就截断（`"…"`，按 code point 切、不切出半个代理对），容器只说形状（`array of 3`、`object with keys a, b`），不把正文灌进消息。
 - 数值越界：clamp 到区间，不报错；非整数（`4.5`）按类型错拒绝，因为行数/条数不能是小数。
 - 部分对象逐键与默认值合并（`ui.widget.glyphs` 也是），缺席的键不算错。
 - 每次返回全新对象：`DEFAULTS` 与返回值不共享引用，调用方随便改。

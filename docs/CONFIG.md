@@ -20,7 +20,7 @@
 |---|---|---|---|---|---|
 | `tools.todo.name` | `"todo"` | 字母开头，字母数字下划线 | 工具名 | 本机还装着 rpiv-todo-lean，两个都注册 `todo` 会撞名 | 改名后我们文案里的「用 todo」也得跟着改；两个扩展同时开会给模型两个工具，容易挑错 |
 | `plan.maxTasks` | `20` | 1–200 | 表里最多几条，超了这次调用直接失败 | 任务真的超过 20 条 | 表越长，模型每次整表重发的输出 token 越多；widget 反正只显示 9 行 |
-| `plan.maxSubjectChars` | `120` | 20–400 | 每条 content 最长多少字符 | 你写长句任务 | 80 列终端一行大概放得下 120 个英文字符；超了会换行，把 widget 的 10 行预算吃光 |
+| `plan.maxSubjectChars` | `120` | 20–400 | 每条 content 最长多少字符（按 Unicode code point 计，emoji 算 1） | 你写长句任务 | 80 列终端一行大概放得下 120 个英文字符；超了会换行，把 widget 的 10 行预算吃光 |
 | `plan.requireSingleInProgress` | `false`（默认放开并行） | true / false | 是否只允许一条 `in_progress` | 想收敛成一次只干一件时设 `true` | 放开后表头不能再说「现在在做哪件」，同一条 guideline 也得改成允许多条并行；设 `true` 时模型同时开两条会直接报错要求重写 |
 
 > **出处说明**：rpiv 这两项都没有 —— 它的配置只有 `guidance`、`maxWidgetLines`（默认 12，低于 3 回退默认，无上限）、`collapseKey`（默认 `ctrl+shift+t`，可设 `off`）三个字段（`@juicesharp/rpiv-todo/config.ts:5-16,37-41`）。任务条数不设限，溢出只在渲染时处理：先丢 completed，再砍非完成项的尾巴，尾部一行汇总（`state/selectors.ts:65-95`）。subject 不截长度，只校验非空 + 清掉终端控制字符（`state/state-reducer.ts:100`、`tool/sanitize.ts:8-24`），宽度按终端列数用 `truncateToWidth(line, width, "…")` 砍（`todo-overlay.ts:144`）。

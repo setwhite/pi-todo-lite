@@ -27,11 +27,11 @@
     - AC4 路径优先级：入参 `configPath` > `$PI_CODING_AGENT_DIR` > `~/.pi/agent`
   - 验收证据指针：
     - AC1 `test/config.test.ts`：`配置文件缺失时全部取默认值，不报错` / `部分字段缺省时其余沿用默认值，嵌套对象逐键合并` / `每次返回独立对象，改返回值不动 DEFAULTS`
-    - AC2 用例：`JSON 损坏：报绝对路径与 invalid JSON` / `顶层不是对象：报 expected object, got <值>` / `对象位置放数组或标量：报字段路径 + expected object` / `未知键在任意层级都报完整字段路径` / `类型错按 expected <类型>, got <值> 报，字符串带回引号` / `布尔与非整数都按类型错拒绝` / `枚举错列出全部合法值` / `工具名不合法时代码报字段路径` / `字符串数组逐元素报下标` / `多处错误一次列完，不半途而废`（4 条错误的顺序也断言了）
+    - AC2 用例：`JSON 损坏：报绝对路径与 invalid JSON` / `顶层不是对象：报 expected object, got <值>` / `对象位置放数组或标量：报字段路径 + expected object` / `未知键在任意层级都报完整字段路径` / `类型错按 expected <类型>, got <值> 报，字符串带回引号` / `布尔与非整数都按类型错拒绝` / `枚举错列出全部合法值` / `工具名不合法时代码报字段路径` / `字符串数组逐元素报下标` / `超长字符串在报错里被截断，不回显全文` / `多处错误一次列完，不半途而废`（4 条错误的顺序也断言了）
     - AC3 用例：`数值越界 clamp 到上界，不报错`（500→200、1000→400、50→10）/ `数值越界 clamp 到下界，不报错`（0→1、1→3）/ `区间内的数值原样保留`
     - AC4 用例：`configPath 优先于 $PI_CODING_AGENT_DIR`（9 赢 7）/ `$PI_CODING_AGENT_DIR 优先于 ~/.pi/agent`（读到 7）/ `都没有时落到 ~/.pi/agent/pi-todo/config.json`（走 `resolveConfigPath`）/ `$PI_CODING_AGENT_DIR 是相对路径时按 cwd 解析成绝对路径` / `$PI_CODING_AGENT_DIR 指向的目录没有配置文件时取默认值`
     - 契约新增两个导出：`DEFAULTS`、`resolveConfigPath`（home 分支不起文件才可测），契约与取舍已同步 `docs/modules/config.md`；多条错误用 `\n` 连接（首条带 `pi-todo config <路径>:` 前缀），非整数按类型错拒绝，部分对象逐键与默认值合并
-    - audit 追修（两条）：`resolveConfigPath` 对 `$PI_CODING_AGENT_DIR` 也走 `resolve()`，相对 env 的错误消息实测为绝对路径；`docs/PLAN.md:39,107`、`docs/CONFIG.md:67,69` 的 description 字符数 39 → 37（`config.ts` 于 `prompt/my prompt new/description.md` 正文逐字一致，实测 37），guidelines 标成「占位符 146 / 替成 `todo` 后 136」
+    - audit 追修（两条）：`resolveConfigPath` 对 `$PI_CODING_AGENT_DIR` 也走 `resolve()`，相对 env 的错误消息实测为绝对路径；`docs/PLAN.md:39,107`、`docs/CONFIG.md:67,69` 的 description 字符数 39 → 37（`config.ts` 于 `prompt/my prompt new/description.md` 正文逐字一致，实测 37），guidelines 标成「占位符 146 / 替成 `todo` 后 136」；`describe()` 对容器只说形状、对 32 字符以上字符串截断（T3 audit 追修同款，`test/config.test.ts` 的 `超长字符串在报错里被截断，不回显全文` 覆盖，含 emoji 代理对的切法）
   - 前置：T1
 
 - [ ] T3 plan.ts 校验
@@ -41,9 +41,13 @@
     - AC2 报错消息带第几条与真实上限（`todo: task 3: content is 128 chars, max is 120`）
     - AC3 返回 trim 过的新数组，不改入参
   - 验收证据指针：
-    - AC1
-    - AC2
-    - AC3
+    - AC1 `test/plan.test.ts`：`空 content 被拒绝` / `超长 content 被拒绝，报 trim 后的长度与真实上限`（121 字符 + 上限改 10 时的 11 字符）/ `超过条数上限被拒绝，报真实上限`（21/20 与 6/5）/ `非法 status 被拒绝`（`"done"`、`5`、缺字段）/ `content 不是字符串被拒绝` / `item 不是对象被拒绝` / `tasks 不是数组被拒绝`（`3`、`"a"`、缺字段）/ `入参不是对象被拒绝`（`null`、数组）/ `未知键被拒绝，不静默剥离`（顶层 `action` 报 `unknown key "action"`、项内 `id` / `activeForm`，含顶层+项内混排的三行消息与 `{tasks: 3, action: "add"}` 的两行消息）/ `长度按 code point 计，emoji 算 1 个`（120 个 😀 = 240 UTF-16 units 通过，121 个报 `content is 121 chars, max is 120`）；拒绝即 `Error`，无部分应用，且用例断言入参未被改动
+    - AC2 `报错带第几条：第三条超长就是 task 3` → 逐字 `todo: task 3: content is 128 chars, max is 120`（TODO/`docs/modules/plan.md` 的示例）；`多条违规一次列完，每条都带工具名前缀`（两条错误、顺序与全文都断言）；`前缀取工具名，不写死 todo`（`toolName: "plan"` 时消息以 `plan: ` 开头且不含 `todo`）；`超长字符串在报错里被截断，不回显全文`（`tasks: "z".repeat(5000)` → 消息 < 100 字符）/ `截断按 code point 切，不切出半个代理对`（`"a" + 😀×20` 不足 32 字符不截，😀×40 截在 31 个 emoji 处）
+    - AC3 `返回 trim 过的新数组，不改入参`（数组与元素都不是同一引用、入参 content 仍带空格）/ `空表合法，返回空数组` / `trim 后正好等于上限算合法`
+    - 契约改动（记偏差）：第二参由 `limits: { maxTasks, maxContentChars }` 改为 `options: ValidateOptions`，多一个 `toolName` —— 宿主不会替工具错误加工具名前缀，`createErrorToolResult(error.message)` 原样回给模型，T3-AC2 的示例消息却带 `todo:`，所以前缀只能由配置里的工具名生成；契约已同步 `docs/modules/plan.md`
+    - 顺带改动（记偏差）：`describe()` 对容器改为只说形状（`array of 21`、`object with keys a, b`），不再 `JSON.stringify` 回显正文 —— 否则 20 项任务表会被原样拼进错误消息；`config.ts` 用同款实现，`test/config.test.ts` 的一条期望随之改为 `plan: expected object, got array of 0`（用例名不变）
+    - audit 追修（三条）：`describe()` 的字符串分支也加了 32 字符截断（内容说形状后字符串成唯一漏洞，`config.ts` 同步、新增用例 `超长字符串在报错里被截断，不回显全文`）；长度口径定为 **Unicode code point**（`Array.from(content).length`），并把口径写进 `docs/PLAN.md:28,36`、`docs/CONFIG.md:23`、`docs/modules/plan.md`；未知键在顶层与项内都拒绝，不再静默剥离（消息 `unknown key "<键>"`，用引号区分路径式写法，顺序固定在项数之前/项内最后）
+    - audit 重审（三条）：`echo()` 改按 code point 切（`Array.from` + `slice` 后 `join`），不再可能切出孤立代理对，`config.ts` 同款；`tasks` 不是数组并入 reasons 列表、不再单行早退（`{tasks: 3, action: "add"}` 一次报两条，模型不必等下一轮）；AC 归类改正 —— code point / emoji 那条从 AC3 移回 AC1
   - 前置：T1
 
 - [ ] T4 plan.ts 回放与文本

@@ -278,8 +278,19 @@ function isRecord(value: unknown): value is Raw {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** 报错时替进消息里的值：标量照原样、字符串带引号，容器只说形状 —— 不回显正文。 */
 function describe(value: unknown): string {
-	if (typeof value === "string") return JSON.stringify(value);
-	if (value === null || typeof value === "object") return JSON.stringify(value) ?? String(value);
-	return String(value);
+	if (typeof value === "string") return echo(value);
+	if (value === null || typeof value !== "object") return String(value);
+	if (Array.isArray(value)) return `array of ${value.length}`;
+	const keys = Object.keys(value);
+	return `object with keys ${keys.length === 0 ? "(none)" : keys.join(", ")}`;
+}
+
+/** 回显字符串的上限（按 code point 计）：超了截断，别把大段正文灌进错误消息。 */
+const ECHO_LIMIT = 32;
+
+function echo(value: string): string {
+	const chars = Array.from(value);
+	return chars.length <= ECHO_LIMIT ? JSON.stringify(value) : `${JSON.stringify(chars.slice(0, ECHO_LIMIT).join(""))}…`;
 }

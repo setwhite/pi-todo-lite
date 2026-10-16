@@ -1,0 +1,113 @@
+/** 三态，没有 deleted：删就是不出现在表里。 */
+export type Status = "pending" | "in_progress" | "completed";
+
+export type Task = {
+	content: string;
+	status: Status;
+};
+
+export type ValidateOptions = {
+	/** 工具名，出现在每条错误消息的开头。 */
+	toolName: string;
+	maxTasks: number;
+	maxContentChars: number;
+};
+
+const STATUSES = ["pending", "in_progress", "completed"] as const;
+
+/**
+ * 校验一次整表提交。全有或全无：任一项不合规就抛 Error，消息按条列出全部违规
+ * （每条前缀 `<toolName>: `，逐行），返回的是 trim 过的新数组，不改入参。
+ */
+export function validateTasks(input: unknown, options: ValidateOptions): Task[] {
+	const prefix = `${options.toolName}: `;
+	if (!isRecord(input)) throw new Error(`${prefix}expected object, got ${describe(input)}`);
+
+	const reasons: string[] = [];
+	for (const key of Object.keys(input)) {
+		if (key !== "tasks") reasons.push(`unknown key ${JSON.stringify(key)}`);
+	}
+
+	const raw = input.tasks;
+	const tasks: Task[] = [];
+	if (Array.isArray(raw)) {
+		if (raw.length > options.maxTasks) reasons.push(`tasks has ${raw.length} items, max is ${options.maxTasks}`);
+		for (const [index, item] of raw.entries()) {
+			const task = checkTask(item, index + 1, options, reasons);
+			if (task !== undefined) tasks.push(task);
+		}
+	} else {
+		reasons.push(`tasks: expected array, got ${describe(raw)}`);
+	}
+
+	if (reasons.length > 0) throw new Error(reasons.map((reason) => prefix + reason).join("\n"));
+	return tasks;
+}
+
+/** 校验一项；不合规的把原因写进 reasons 并返回 undefined。 */
+function checkTask(value: unknown, position: number, options: ValidateOptions, reasons: string[]): Task | undefined {
+	const at = `task ${position}: `;
+	if (!isRecord(value)) {
+		reasons.push(`${at}expected object, got ${describe(value)}`);
+		return undefined;
+	}
+	const content = readContent(value.content, at, options, reasons);
+	const status = readStatus(value.status, at, reasons);
+	for (const key of Object.keys(value)) {
+		if (key !== "content" && key !== "status") reasons.push(`${at}unknown key ${JSON.stringify(key)}`);
+	}
+	if (content === undefined || status === undefined) return undefined;
+	return { content, status };
+}
+
+function readContent(value: unknown, at: string, options: ValidateOptions, reasons: string[]): string | undefined {
+	if (typeof value !== "string") {
+		reasons.push(`${at}expected string, got ${describe(value)}`);
+		return undefined;
+	}
+	const content = value.trim();
+	if (content === "") {
+		reasons.push(`${at}content is empty`);
+		return undefined;
+	}
+	const length = countChars(content);
+	if (length > options.maxContentChars) {
+		reasons.push(`${at}content is ${length} chars, max is ${options.maxContentChars}`);
+		return undefined;
+	}
+	return content;
+}
+
+function readStatus(value: unknown, at: string, reasons: string[]): Status | undefined {
+	if (typeof value !== "string" || !(STATUSES as readonly string[]).includes(value)) {
+		reasons.push(`${at}expected one of ${STATUSES.join(" | ")}, got ${describe(value)}`);
+		return undefined;
+	}
+	return value as Status;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** 按 Unicode code point 计（`Array.from`）：emoji 算 1 个，与「120 字符」的直觉一致。 */
+function countChars(value: string): number {
+	return Array.from(value).length;
+}
+
+/** 报错时替进消息里的值：标量照原样、字符串带引号（超长截断），容器只说形状 —— 不回显正文。 */
+function describe(value: unknown): string {
+	if (typeof value === "string") return echo(value);
+	if (value === null || typeof value !== "object") return String(value);
+	if (Array.isArray(value)) return `array of ${value.length}`;
+	const keys = Object.keys(value);
+	return `object with keys ${keys.length === 0 ? "(none)" : keys.join(", ")}`;
+}
+
+/** 回显字符串的上限（按 code point 计）：超了截断，别把大段正文灌进错误消息。 */
+const ECHO_LIMIT = 32;
+
+function echo(value: string): string {
+	const chars = Array.from(value);
+	return chars.length <= ECHO_LIMIT ? JSON.stringify(value) : `${JSON.stringify(chars.slice(0, ECHO_LIMIT).join(""))}…`;
+}
