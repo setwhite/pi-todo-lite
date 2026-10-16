@@ -38,6 +38,7 @@ export function exportFileName(pattern: string, at: Date): string;
 
 ## 取舍
 
+- `ui.widget.completedStyle` 的实现是 `WidgetConfig.styleCompleted` 钩子（`index.ts` 用主题的方法填）：`renderWidget` 只负责在**截断之后**把已完成的行交给钩子，所以样式序列不计进宽度；`renderList`（notify 纯文本）不吃这个钩子。
 - `renderList` 不吃 `maxLines` 也不吃 `showCompleted`，更不按宽度截断：清单的用处就是全看一遍，widget 那套预算只属于 widget。
 - 三态压两态是**有损**的：`in_progress` 导出成 `- [ ]`、读回变 `pending`。要无损得自定义第三种勾选框，markdown 生态不认。
 - 不设颜色、不做主题：跟着 pi 的主题走。

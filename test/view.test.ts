@@ -131,6 +131,34 @@ describe("renderWidget", () => {
 	});
 });
 
+describe("renderWidget：已完成行的样式钩子", () => {
+	const mixed: Task[] = [
+		{ content: "a", status: "pending" },
+		{ content: "b", status: "in_progress" },
+		{ content: "c", status: "completed" },
+	];
+
+	it("只套在已完成的行上，而且是先截断再套（宽度按没套样式前算）", () => {
+		const cfg = { ...CFG, styleCompleted: (text: string) => `<${text}>` };
+
+		expect(renderWidget(mixed, cfg, 80)).toEqual(["Todo 1/3 · 1 doing", "[ ] a", "[-] b", "<[x] c>"]);
+		expect(renderWidget([{ content: "a very long completed task", status: "completed" }], cfg, 10)).toEqual(["Todo 1/1", "<[x] a ver…>"]);
+	});
+
+	it("不传这个钩子就原样输出", () => {
+		expect(renderWidget(mixed, CFG, 80)).toEqual(["Todo 1/3 · 1 doing", "[ ] a", "[-] b", "[x] c"]);
+	});
+
+	it("没有完成行时钩子一次都不调用；renderList（notify 纯文本）也不用它", () => {
+		const calls: string[] = [];
+		const cfg = { ...CFG, showCompleted: false, styleCompleted: (text: string) => (calls.push(text), text) };
+
+		expect(renderWidget(mixed, cfg, 80)).toEqual(["Todo 1/3 · 1 doing", "[ ] a", "[-] b"]);
+		expect(renderList(mixed, cfg)).toBe("Todo 1/3 · 1 doing\n[ ] a\n[-] b\n[x] c");
+		expect(calls).toEqual([]);
+	});
+});
+
 describe("renderList", () => {
 	it("全列：20 条、maxLines 为 3 也一条不少，末尾没有 +N more", () => {
 		const lines = renderList(makeTasks(20, "pending"), { ...CFG, maxLines: 3 }).split("\n");

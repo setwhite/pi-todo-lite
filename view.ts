@@ -6,6 +6,11 @@ export type WidgetConfig = {
 	glyphs: { pending: string; inProgress: string; completed: string };
 	showCompleted: boolean;
 	placement: "aboveEditor" | "belowEditor";
+	/**
+	 * 已完成行的样式钩子（`ui.widget.completedStyle`）：拿到的是**已经截断好**的一行，
+	 * 所以贴进去的样式序列不计进宽度。不给就原样输出；`renderList` 不吃它（notify 走纯文本）。
+	 */
+	styleCompleted?: (text: string) => string;
 };
 
 /** 省略号就一个字符，按 code point 补在截断处。 */
@@ -99,7 +104,11 @@ export function renderWidget(tasks: readonly Task[], cfg: WidgetConfig, width: n
 	// `maxLines` 是硬上限：预算连表头都装不下时，汇总行也一并丢掉
 	if (hidden > 0 && budget > 0) lines.push(`+${hidden} more`);
 
-	return lines.map((line) => truncate(line, width));
+	return lines.map((line, index) => {
+		const text = truncate(line, width);
+		// 表头在 index 0，之后依次是 shown 里的条目（汇总行拿不到 task，自然不套样式）
+		return shown[index - 1]?.status === "completed" && cfg.styleCompleted !== undefined ? cfg.styleCompleted(text) : text;
+	});
 }
 
 /**
