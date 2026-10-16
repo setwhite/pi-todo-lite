@@ -64,9 +64,9 @@
 
 | 键 | 默认 | 取值 | 管什么 | 什么时候想改 | 代价 |
 |---|---|---|---|---|---|
-| `guidance.description` | 我们的成品（39 字符） | 字符串 | 覆盖工具描述 | 换模型（deepseek / gemini）措辞要试 | 写长了每轮都付 token |
+| `guidance.description` | 我们的成品（37 字符） | 字符串 | 覆盖工具描述 | 换模型（deepseek / gemini）措辞要试 | 写长了每轮都付 token |
 | `guidance.promptSnippet` | `""` | 字符串 | 覆盖工具清单那行 `- todo: …` | 想省 token | 留空即不出现；`codemode.mode: "only"` 下这行本来就不渲染 |
-| `guidance.promptGuidelines` | 我们的成品（2 条，136 字符） | 字符串数组 | 覆盖 guidelines | 同上 | **整组替换，不是合并**；写太多每轮都付 |
+| `guidance.promptGuidelines` | 我们的成品（2 条，占位符 146 / 替成 `todo` 后 136 字符） | 字符串数组 | 覆盖 guidelines | 同上 | **整组替换，不是合并**；写太多每轮都付 |
 
 模型侧文案定稿在 `prompt/my prompt new/`（description / snippet / guidelines / schema，2026-10-16），T6 搬进 `index.ts` 之后代码就是唯一副本；整个 `prompt/` 不进仓库、不进 npm 包。
 

@@ -36,7 +36,7 @@
 | 命令：`/todos`（清单）/ `clear` / `export` / `import <文件>` | `export` 吐 markdown、`import` 只吃 markdown checklist，闭环 | 你拍板 |
 | 命令输出渠道一律 `ctx.ui.notify` | `sendMessage` 会进模型上下文（每轮付 token），`ctx.ui.custom` 在 RPC / print 下拿不到 | `dist/modes/interactive/interactive-mode.js:3115-3133` |
 | TUI 文案全英文、简短直白；模型侧文案也是英文 | 你拍板 | 定稿在 `prompt/my prompt new/`（不入仓库），T6 搬进 `index.ts` |
-| 模型侧指引：description + guidelines + 参数 schema，实测 ≈ 74 tok（description 39 字符、guidelines 2 条 136 字符、签名一行 118 字符）；`promptSnippet` 留空 | guidelines 每轮都付；snippet 在 `codemode.mode: "only"` 下根本不渲染（它只渲染成工具清单里 `- todo: …` 那行，而 only 模式会把 direct 工具的声明剥掉）；没有 id / action 就没有协议要教 | `dist/core/system-prompt.js:85`、`dist/extensions/codemode/tool.js` 的 `prepareCodemodeLoadout` 与 `toCodemodeDeclaration` |
+| 模型侧指引：description + guidelines + 参数 schema；字符数已对定稿核对（description 37 字符、guidelines 2 条 146 字符 / 占位符替成 `todo` 后 136、签名一行 118 字符），≈ 74 tok 是旧稿实测，T6 按定稿复测；`promptSnippet` 留空 | guidelines 每轮都付；snippet 在 `codemode.mode: "only"` 下根本不渲染（它只渲染成工具清单里 `- todo: …` 那行，而 only 模式会把 direct 工具的声明剥掉）；没有 id / action 就没有协议要教 | `dist/core/system-prompt.js:85`、`dist/extensions/codemode/tool.js` 的 `prepareCodemodeLoadout` 与 `toCodemodeDeclaration` |
 | 声明 `executionMode: "sequential"` | 排除并发写互相覆盖 | — |
 | 不做 nudge | 中途改 systemPrompt 前缀会打掉 provider 的缓存前缀；且催收会把没验完的标成 completed，假完成比陈旧更坏 | `docs/extensions.md:189` |
 | 不做项目级持久化 | 跨天的清单归仓库里的 `TODO.md`，模型自己能读写 | — |
@@ -104,7 +104,7 @@
 | AC3 | 渲染用例：0 / 1 / 20 条 × 终端宽度 40 / 80 / 120 —— 行数、`…` 截断、`+N more` 都符合预期 |
 | AC4 | 真机：`pi -e ./index.ts` 起一个 ≥ 3 步的任务，表出现在输入框上方；`/todos` 打出清单；模型传 `tasks: []` 后 widget 消失 |
 | AC5 | `/todos export` 吐出的 markdown 能被 `/todos import` 原样读回 |
-| AC6 | 模型侧开销 ≤ 120 tok：description + guidelines + `describeTool("todo")` 渲染出的那一行签名（当前成品 ≈ 74） |
+| AC6 | 模型侧开销 ≤ 120 tok：description + guidelines + `describeTool("todo")` 渲染出的那一行签名（旧稿实测 ≈ 74，T6 按定稿复测） |
 | AC7 | 干净克隆上 `pnpm typecheck && pnpm test` 通过；CI 三个 job 绿 |
 
 ## 影响范围
