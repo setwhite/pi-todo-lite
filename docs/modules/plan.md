@@ -25,7 +25,7 @@ export function formatTasks(tasks: readonly Task[]): string;
   - 长度按 **Unicode code point** 计（`Array.from(content).length`，emoji 算 1 个），上限取 `options` 不硬编码。
   - 报错只给类型、长度与上限，不回显正文：字符串超过 32 字符就截断（`"zzz…"`），容器只说形状（`array of 21`、`object with keys a, b`）；截断按 code point 切，不切出半个代理对。
   - 未知键在任意层级都拒绝、不静默剥离：rpiv 那套 `action` / `id` / `activeForm` 混进来会被点名。T6 注册的 schema 也应为 `additionalProperties: false`，让模型更早看到同一件事。
-  - content 必须是**纯文本、单行**：命中控制字符 / 行分隔符（`\p{Cc}`、`\p{Zl}`、`\p{Zp}`：`\n` / `\t` / ESC …）报 `… has a control character (U+000A); keep it one line`，命中不可见格式字符（`\p{Cf}`：RLO / ZWSP / 软连字符 / BOM / ZWJ …）报 `… has an invisible character (U+202E); keep it plain text`，命中字符都带 U+ 码点与名字。**不做白名单**：ZWJ 组字 emoji（`👨‍👩‍👧`）也被拒，单码点 emoji（`😀`）本就不含 `\p{Cf}`，不受影响。同一项里控制字符与超长同时踩中，两条都报 —— 「一次列完」包含同一字段的多个问题。
+  - content 必须是**纯文本、单行**：命中控制字符 / 行分隔符（`\p{Cc}`、`\p{Zl}`、`\p{Zp}`：`\n` / `\t` / ESC …）报 `… has a control character (U+000A); keep it one line`，命中不可见格式字符（`\p{Cf}`：RLO / ZWSP / 软连字符 / BOM / ZWJ …）报 `… has an invisible character (U+202E); keep it plain text`，命中字符带 U+ 码点、名字只按类给（`a control character` / `a line separator` / `an invisible character`，不逐个字符建对照表）。**不做白名单**：ZWJ 组字 emoji（`👨‍👩‍👧`）也被拒，单码点 emoji（`😀`）本就不含 `\p{Cf}`，不受影响。同一项里控制字符与超长同时踩中，两条都报 —— 「一次列完」包含同一字段的多个问题。
 - `replayTasks`：从后往前取**最后一条有效**快照（`type: "custom"` + `customType: "pi-todo-state"` 的 `data.tasks`），坏条目跳过继续往前扫，一条都没有 → `[]`。**不读 toolResult 的 details**（状态只写一条账）。
   - 什么算坏：不是我们的条目、`data` 不是对象、`data.tasks` 不是数组、项不是对象、content trim 后为空、status 不在三态 —— 整条快照作废，不修补、不部分采用。
   - 回放出来的项只留 `content`（trim 过，与校验后的不变式一致）与 `status`，多余字段丢掉；不设条数与长度上限（快照是当时校验过的，改过配置的老会话照样回放）。

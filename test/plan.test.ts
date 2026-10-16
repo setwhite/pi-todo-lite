@@ -105,8 +105,8 @@ describe("validateTasks", () => {
 	});
 
 	it("截断按 code point 切，不切出半个代理对", () => {
-		expect(captureError(() => validateTasks({ tasks: "a" + "😀".repeat(20) }, LIMITS))).toBe(`todo: tasks: expected array, got ${JSON.stringify("a" + "😀".repeat(20))}`);
-		expect(captureError(() => validateTasks({ tasks: "a" + "😀".repeat(40) }, LIMITS))).toBe(`todo: tasks: expected array, got ${JSON.stringify("a" + "😀".repeat(31))}…`);
+		expect(captureError(() => validateTasks({ tasks: "a" + "𠀋".repeat(20) }, LIMITS))).toBe(`todo: tasks: expected array, got ${JSON.stringify("a" + "𠀋".repeat(20))}`);
+		expect(captureError(() => validateTasks({ tasks: "a" + "𠀋".repeat(40) }, LIMITS))).toBe(`todo: tasks: expected array, got ${JSON.stringify("a" + "𠀋".repeat(31))}…`);
 	});
 
 	it("未知键被拒绝，不静默剥离", () => {
@@ -152,13 +152,13 @@ describe("validateTasks", () => {
 
 	it("content 里的控制字符被拒绝，要求单行", () => {
 		expect(captureError(() => validateTasks({ tasks: [{ content: "line1\nline2", status: "pending" }] }, LIMITS))).toBe(
-			"todo: task 1: content has a newline (U+000A); keep it one line",
+			"todo: task 1: content has a control character (U+000A); keep it one line",
 		);
 		expect(captureError(() => validateTasks({ tasks: [{ content: "a\tb", status: "pending" }] }, LIMITS))).toBe(
-			"todo: task 1: content has a tab (U+0009); keep it one line",
+			"todo: task 1: content has a control character (U+0009); keep it one line",
 		);
 		expect(captureError(() => validateTasks({ tasks: [{ content: "\u001b[31mred", status: "pending" }] }, LIMITS))).toBe(
-			"todo: task 1: content has an escape character (U+001B); keep it one line",
+			"todo: task 1: content has a control character (U+001B); keep it one line",
 		);
 		expect(captureError(() => validateTasks({ tasks: [{ content: "a\u2028b", status: "pending" }] }, LIMITS))).toBe(
 			"todo: task 1: content has a line separator (U+2028); keep it one line",
@@ -167,19 +167,19 @@ describe("validateTasks", () => {
 
 	it("content 同时含控制字符又超长时两条都报", () => {
 		expect(captureError(() => validateTasks({ tasks: [{ content: `${"x".repeat(100)}\n${"x".repeat(100)}`, status: "pending" }] }, LIMITS))).toBe(
-			["todo: task 1: content has a newline (U+000A); keep it one line", "todo: task 1: content is 201 chars, max is 120"].join("\n"),
+			["todo: task 1: content has a control character (U+000A); keep it one line", "todo: task 1: content is 201 chars, max is 120"].join("\n"),
 		);
 	});
 
 	it("不可见格式字符被拒绝：RLO / ZWSP / 软连字符 / BOM", () => {
 		expect(captureError(() => validateTasks({ tasks: [{ content: "a\u202eb", status: "pending" }] }, LIMITS))).toBe(
-			"todo: task 1: content has a right-to-left override (U+202E); keep it plain text",
+			"todo: task 1: content has an invisible character (U+202E); keep it plain text",
 		);
 		expect(captureError(() => validateTasks({ tasks: [{ content: "a\u200bb", status: "pending" }] }, LIMITS))).toBe(
-			"todo: task 1: content has a zero-width space (U+200B); keep it plain text",
+			"todo: task 1: content has an invisible character (U+200B); keep it plain text",
 		);
 		expect(captureError(() => validateTasks({ tasks: [{ content: "a\ufeffb", status: "pending" }] }, LIMITS))).toBe(
-			"todo: task 1: content has a byte order mark (U+FEFF); keep it plain text",
+			"todo: task 1: content has an invisible character (U+FEFF); keep it plain text",
 		);
 		// 首尾的 BOM 归 trim() 管（U+FEFF 是 JS 的空格），只有夹在中间的才落到这里
 		expect(validateTasks({ tasks: [{ content: " \ufeffa ", status: "pending" }] }, LIMITS)).toEqual([{ content: "a", status: "pending" }]);

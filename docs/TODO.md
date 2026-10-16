@@ -31,7 +31,7 @@
     - AC3 用例：`数值越界 clamp 到上界，不报错`（500→200、1000→400、50→10）/ `数值越界 clamp 到下界，不报错`（0→1、1→3）/ `区间内的数值原样保留`
     - AC4 用例：`configPath 优先于 $PI_CODING_AGENT_DIR`（9 赢 7）/ `$PI_CODING_AGENT_DIR 优先于 ~/.pi/agent`（读到 7）/ `都没有时落到 ~/.pi/agent/pi-todo/config.json`（走 `resolveConfigPath`）/ `$PI_CODING_AGENT_DIR 是相对路径时按 cwd 解析成绝对路径` / `$PI_CODING_AGENT_DIR 指向的目录没有配置文件时取默认值`
     - 契约新增两个导出：`DEFAULTS`、`resolveConfigPath`（home 分支不起文件才可测），契约与取舍已同步 `docs/modules/config.md`；多条错误用 `\n` 连接（首条带 `pi-todo config <路径>:` 前缀），非整数按类型错拒绝，部分对象逐键与默认值合并
-    - audit 追修（两条）：`resolveConfigPath` 对 `$PI_CODING_AGENT_DIR` 也走 `resolve()`，相对 env 的错误消息实测为绝对路径；`docs/PLAN.md:39,107`、`docs/CONFIG.md:67,69` 的 description 字符数 39 → 37（`config.ts` 于 `prompt/my prompt new/description.md` 正文逐字一致，实测 37），guidelines 标成「占位符 146 / 替成 `todo` 后 136」；`describe()` 对容器只说形状、对 32 字符以上字符串截断（T3 audit 追修同款，`test/config.test.ts` 的 `超长字符串在报错里被截断，不回显全文` 覆盖，含 emoji 代理对的切法）
+    - audit 追修（两条）：`resolveConfigPath` 对 `$PI_CODING_AGENT_DIR` 也走 `resolve()`，相对 env 的错误消息实测为绝对路径；`docs/PLAN.md:39,107`、`docs/CONFIG.md:67,69` 的 description 字符数 39 → 37（`config.ts` 于 `prompt/my prompt new/description.md` 正文逐字一致，实测 37），guidelines 标成「占位符 146 / 替成 `todo` 后 136」；`describe()` 对容器只说形状、对 32 字符以上字符串截断（T3 audit 追修同款，`test/config.test.ts` 的 `超长字符串在报错里被截断，不回显全文` 覆盖，含代理对的切法 —— 向量在清理时从 😀 换成生僻汉字 𠀋）
   - 前置：T1
 
 - [x] T3 plan.ts 校验
@@ -49,6 +49,7 @@
     - audit 追修（三条）：`describe()` 的字符串分支也加了 32 字符截断（内容说形状后字符串成唯一漏洞，`config.ts` 同步、新增用例 `超长字符串在报错里被截断，不回显全文`）；长度口径定为 **Unicode code point**（`Array.from(content).length`），并把口径写进 `docs/PLAN.md:28,36`、`docs/CONFIG.md:23`、`docs/modules/plan.md`；未知键在顶层与项内都拒绝，不再静默剥离（消息 `unknown key "<键>"`，用引号区分路径式写法，顺序固定在项数之前/项内最后）
     - audit 三轮（由 T4 审计牵出）：content 单行规则落进 `readContent` —— 命中 `\p{Cc}` / `\p{Zl}` / `\p{Zp}`（\n、\t、ESC、U+2028）报 `content has a control character (U+000A); keep it one line`；同一字段的多个问题（控制字符 + 超长）现在两条都报。规则已同步 `docs/PLAN.md`、`docs/CONFIG.md`、`docs/modules/plan.md`
     - audit 四轮（两条，收口）：① `\p{Cf}` 从「整类放行」改成整类拒绝 —— RLO / ZWSP / 软连字符 / BOM 都进拒绝集（消息尾部按类分「keep it one line」/「keep it plain text」），不做 ZWJ / ZWNJ / 变体选择符白名单，理由：这里是纯文本，单码点 emoji（😀）本就不含 `\p{Cf}`，组字 emoji 与 VS16 被拒后模型改写即可；② 回放侧转义序列整条丢（CSI / OSC / 单字符 Fe），不再留 `[31m` 残渣
+    - 过度设计清理（用户裁定）：删掉 `plan.ts` 里 9 条字符名对照表（`CHARACTER_NAMES`），报错只按类给名 + U+ 码点；测试里「截断」的向量从 😀 换成生僻汉字 𠀋（`test/plan.test.ts`、`test/config.test.ts`）。保留未动的两处：`ESCAPE_SEQUENCE` 的 OSC / Fe 分支、`docs/TODO.md` 的逐轮审计流水
     - audit 重审（三条）：`echo()` 改按 code point 切（`Array.from` + `slice` 后 `join`），不再可能切出孤立代理对，`config.ts` 同款；`tasks` 不是数组并入 reasons 列表、不再单行早退（`{tasks: 3, action: "add"}` 一次报两条，模型不必等下一轮）；AC 归类改正 —— code point / emoji 那条从 AC3 移回 AC1
   - 前置：T1
 

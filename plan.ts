@@ -107,25 +107,14 @@ function readContent(value: unknown, at: string, options: ValidateOptions, reaso
 	return ok ? content : undefined;
 }
 
-const CHARACTER_NAMES: Record<number, string> = {
-	0x09: "a tab",
-	0x0a: "a newline",
-	0x0d: "a carriage return",
-	0x1b: "an escape character",
-	0x200b: "a zero-width space",
-	0x2028: "a line separator",
-	0x2029: "a paragraph separator",
-	0x202e: "a right-to-left override",
-	0xfeff: "a byte order mark",
-};
-
-/** 违规字符 → 报错里的原因：`a newline (U+000A); keep it one line` / `a right-to-left override (U+202E); keep it plain text`。 */
+/**
+ * 违规字符 → 报错里的原因：`a control character (U+000A); keep it one line` /
+ * `an invisible character (U+202E); keep it plain text`。只按类给名 + U+ 码点，不逐个字符建对照表。
+ */
 function offense(char: string): string {
 	const code = char.codePointAt(0) ?? 0;
-	const wraps = /[\p{Cc}\p{Zl}\p{Zp}]/u.test(char);
-	const what = CHARACTER_NAMES[code] ?? (wraps ? "a control character" : "an invisible character");
-	const fix = wraps ? "keep it one line" : "keep it plain text";
-	return `${what} (U+${code.toString(16).toUpperCase().padStart(4, "0")}); ${fix}`;
+	const what = /\p{Cc}/u.test(char) ? "a control character" : /\p{Cf}/u.test(char) ? "an invisible character" : "a line separator";
+	return `${what} (U+${code.toString(16).toUpperCase().padStart(4, "0")}); ${what === "an invisible character" ? "keep it plain text" : "keep it one line"}`;
 }
 
 function readStatus(value: unknown, at: string, reasons: string[]): Status | undefined {

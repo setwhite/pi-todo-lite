@@ -133,10 +133,10 @@ describe("loadConfig", () => {
 		expect(message).toBe(`pi-todo config ${path}: ui.widget.maxLines: expected number, got ${JSON.stringify("9".repeat(32))}…`);
 		expect(message.length).toBeLessThan(200);
 
-		const emojiPath = writeConfig(JSON.stringify({ ui: { widget: { maxLines: "a" + "😀".repeat(40) } } }));
+		const longPath = writeConfig(JSON.stringify({ ui: { widget: { maxLines: "a" + "𠀋".repeat(40) } } }));
 
-		expect(captureError(() => loadConfig({ configPath: emojiPath, env: {} }))).toBe(
-			`pi-todo config ${emojiPath}: ui.widget.maxLines: expected number, got ${JSON.stringify("a" + "😀".repeat(31))}…`,
+		expect(captureError(() => loadConfig({ configPath: longPath, env: {} }))).toBe(
+			`pi-todo config ${longPath}: ui.widget.maxLines: expected number, got ${JSON.stringify("a" + "𠀋".repeat(31))}…`,
 		);
 	});
 
