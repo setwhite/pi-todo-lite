@@ -12,6 +12,7 @@ export type ValidateOptions = {
   toolName: string;      // 每条错误消息的开头
   maxTasks: number;
   maxContentChars: number;
+  requireSingleInProgress?: boolean;  // 只允许一条 in_progress，不给就放开并行（plan.requireSingleInProgress）
 };
 
 export function validateTasks(input: unknown, options: ValidateOptions): Task[];
@@ -23,7 +24,8 @@ export function formatTasks(tasks: readonly Task[]): string;
 
 - `validateTasks`：**全有或全无**。content 先 trim；空、超长，status 不在三态里，项数超限，未知键，`tasks` 不是数组 —— 任一条不合规就抛 `Error`，返回 trim 过的新数组、不改入参。
   - 消息一次列完全部违规（`\n` 连接），**每一行**都以 `<toolName>: ` 开头，顺序固定：顶层未知键 → `tasks` 形状/项数 → 按项序（一项内先 content 后 status 再未知键）。`tasks` 不是数组也并进这份列表，不单行早退 —— `{tasks: 3, action: "add"}` 一次报两条。
-  - 逐项的原因：`task 3: content is 128 chars, max is 120` / `task 1: content is empty` / `task 2: expected string, got 5` / `task 4: expected object, got "do it"` / `task 1: expected one of pending | in_progress | completed, got "done"` / `task 1: unknown key "id"`；整表的原因：`unknown key "action"` / `tasks has 21 items, max is 20` / `tasks: expected array, got 3` / `expected object, got null`。
+  - 逐项的原因：`task 3: content is 128 chars, max is 120` / `task 1: content is empty` / `task 2: expected string, got 5` / `task 4: expected object, got "do it"` / `task 1: expected one of pending | in_progress | completed, got "done"` / `task 1: unknown key "id"`；整表的原因：`unknown key "action"` / `tasks has 21 items, max is 20` / `tasks: expected array, got 3` / `expected object, got null` / `2 tasks are in_progress, max is 1`。
+  - `options.requireSingleInProgress` 为 `true` 时整表最多一条 `in_progress`，超了报 `2 tasks are in_progress, max is 1`（整表原因，紧跟在项数检查之后）；只数 status 合法的项 —— 非法 status 由逐项检查去报，不在这里重复计数。
   - 长度按 **Unicode code point** 计（`Array.from(content).length`，emoji 算 1 个），上限取 `options` 不硬编码。
   - 报错只给类型、长度与上限，不回显正文：字符串超过 32 字符就截断（`"zzz…"`），容器只说形状（`array of 21`、`object with keys a, b`）；截断按 code point 切，不切出半个代理对。
   - 未知键在任意层级都拒绝、不静默剥离：rpiv 那套 `action` / `id` / `activeForm` 混进来会被点名。T6 注册的 schema 也应为 `additionalProperties: false`，让模型更早看到同一件事。

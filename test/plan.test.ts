@@ -33,6 +33,31 @@ describe("validateTasks", () => {
 		expect(captureError(() => validateTasks({ tasks: Array.from({ length: 6 }, () => ({ ...task })) }, { ...LIMITS, maxTasks: 5 }))).toBe("todo: tasks has 6 items, max is 5");
 	});
 
+	it("requireSingleInProgress 为 true 时只允许一条 in_progress，报真实条数", () => {
+		const twoDoing = { tasks: [{ content: "a", status: "in_progress" }, { content: "b", status: "in_progress" }] };
+
+		expect(captureError(() => validateTasks(twoDoing, { ...LIMITS, requireSingleInProgress: true }))).toBe("todo: 2 tasks are in_progress, max is 1");
+		expect(validateTasks({ tasks: [{ content: "a", status: "in_progress" }, { content: "b", status: "pending" }] }, { ...LIMITS, requireSingleInProgress: true })).toEqual([
+			{ content: "a", status: "in_progress" },
+			{ content: "b", status: "pending" },
+		]);
+	});
+
+	it("不传这个选项就按放开并行收：多条 in_progress 照收", () => {
+		expect(validateTasks({ tasks: [{ content: "a", status: "in_progress" }, { content: "b", status: "in_progress" }] }, LIMITS)).toEqual([
+			{ content: "a", status: "in_progress" },
+			{ content: "b", status: "in_progress" },
+		]);
+	});
+
+	it("非法 status 不参与 in_progress 计数", () => {
+		const tasks = { tasks: [{ content: "a", status: "in_progress" }, { content: "b", status: "nope" }] };
+
+		expect(captureError(() => validateTasks(tasks, { ...LIMITS, requireSingleInProgress: true }))).toBe(
+			'todo: task 2: expected one of pending | in_progress | completed, got "nope"',
+		);
+	});
+
 	it("非法 status 被拒绝", () => {
 		expect(captureError(() => validateTasks({ tasks: [{ content: "a", status: "done" }] }, LIMITS))).toBe(
 			'todo: task 1: expected one of pending | in_progress | completed, got "done"',

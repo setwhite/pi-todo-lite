@@ -11,6 +11,8 @@ export type ValidateOptions = {
 	toolName: string;
 	maxTasks: number;
 	maxContentChars: number;
+	/** 只允许一条 `in_progress`（`plan.requireSingleInProgress`）；不给就放开并行。 */
+	requireSingleInProgress?: boolean;
 };
 
 const STATUSES = ["pending", "in_progress", "completed"] as const;
@@ -55,6 +57,11 @@ export function validateTasks(input: unknown, options: ValidateOptions): Task[] 
 	const tasks: Task[] = [];
 	if (Array.isArray(raw)) {
 		if (raw.length > options.maxTasks) reasons.push(`tasks has ${raw.length} items, max is ${options.maxTasks}`);
+		if (options.requireSingleInProgress === true) {
+			// 只数合法项：非法 status 由逐项检查去报，不在这里重复计数
+			const doing = raw.filter((item) => isRecord(item) && item.status === "in_progress").length;
+			if (doing > 1) reasons.push(`${doing} tasks are in_progress, max is 1`);
+		}
 		for (const [index, item] of raw.entries()) {
 			const task = checkTask(item, index + 1, options, reasons);
 			if (task !== undefined) tasks.push(task);
