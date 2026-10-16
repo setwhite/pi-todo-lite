@@ -39,6 +39,8 @@ type WidgetCall = { key: string; content: unknown; options?: { placement?: strin
 type CommandOptions = { description?: string; handler: (args: string, ctx: ExtensionContext) => Promise<void> };
 type CommandCall = { name: string; options: CommandOptions };
 type Note = { message: string; type?: string };
+type ShortcutOptions = { description?: string; handler: (ctx: ExtensionContext) => unknown };
+type ShortcutCall = { key: string; options: ShortcutOptions };
 
 interface Harness {
 	api: ExtensionAPI;
@@ -47,6 +49,7 @@ interface Harness {
 	entries: StateEntry[];
 	widgets: WidgetCall[];
 	commands: CommandCall[];
+	shortcuts: ShortcutCall[];
 	notes: Note[];
 	ctx: ExtensionContext;
 	/** 累计 requestRender 次数。 */
@@ -55,19 +58,24 @@ interface Harness {
 	lines: (width: number) => string[];
 	/** 跑一次命令 handler（注册的第一个命令）。 */
 	run: (args: string) => Promise<void>;
+	/** 按一次快捷键（注册的第一个）。 */
+	fireShortcut: () => Promise<void>;
 }
 
 /** fake api + fake ctx：只实现 index.ts 用到的那几样（registerTool / on / appendEntry / ui.setWidget / sessionManager.getBranch）。 */
-function harness(options: { hasUI?: boolean; noSetWidget?: boolean; cwd?: string } = {}): Harness {
+function harness(options: { hasUI?: boolean; noSetWidget?: boolean; cwd?: string; theme?: unknown } = {}): Harness {
 	const tools: ToolDefinition[] = [];
 	const entries: StateEntry[] = [];
 	const widgets: WidgetCall[] = [];
 	const commands: CommandCall[] = [];
+	const shortcuts: ShortcutCall[] = [];
 	const notes: Note[] = [];
 	const handlers = new Map<string, Handler[]>();
 	let renders = 0;
 
 	const tui = { requestRender: () => void (renders += 1) } as unknown as TUI;
+	// 默认主题是恒等的：不关心样式的用例拿到的还是原文本
+	const theme = options.theme ?? { strikethrough: (text: string) => text, style: (text: string) => text };
 	const api = {
 		registerTool: (tool: ToolDefinition) => void tools.push(tool),
 		on: (event: string, handler: Handler) => {
@@ -76,6 +84,7 @@ function harness(options: { hasUI?: boolean; noSetWidget?: boolean; cwd?: string
 		},
 		appendEntry: (customType: string, data?: unknown) => void entries.push({ type: "custom", customType, data }),
 		registerCommand: (name: string, commandOptions: CommandOptions) => void commands.push({ name, options: commandOptions }),
+		registerShortcut: (key: string, shortcutOptions: ShortcutOptions) => void shortcuts.push({ key, options: shortcutOptions }),
 	} as unknown as ExtensionAPI;
 	const ctx = {
 		hasUI: options.hasUI ?? true,
@@ -85,7 +94,7 @@ function harness(options: { hasUI?: boolean; noSetWidget?: boolean; cwd?: string
 			: {
 					setWidget: (key: string, content: unknown, widgetOptions?: { placement?: string }) => {
 						const call: WidgetCall = { key, content, options: widgetOptions };
-						if (typeof content === "function") call.component = (content as (tui: TUI, theme: unknown) => Component)(tui, {});
+						if (typeof content === "function") call.component = (content as (tui: TUI, theme: unknown) => Component)(tui, theme);
 						widgets.push(call);
 					},
 					notify: (message: string, type?: string) => void notes.push({ message, type }),
@@ -95,7 +104,21 @@ function harness(options: { hasUI?: boolean; noSetWidget?: boolean; cwd?: string
 
 	const run = (args: string): Promise<void> => (commands[0] as CommandCall).options.handler(args, ctx as never);
 
-	return { api, handlers, tools, entries, widgets, commands, notes, ctx, renders: () => renders, lines: (width) => widgets.at(-1)?.component?.render(width) ?? [], run };
+	return {
+		api,
+		handlers,
+		tools,
+		entries,
+		widgets,
+		commands,
+		shortcuts,
+		notes,
+		ctx,
+		renders: () => renders,
+		lines: (width) => widgets.at(-1)?.component?.render(width) ?? [],
+		run,
+		fireShortcut: async () => void (await shortcuts[0]?.options.handler(ctx as never)),
+	};
 }
 
 /** 触发一个会话事件；index.ts 注册了 session_start / session_compact / session_tree。 */
@@ -224,6 +247,41 @@ describe("index：一次调用（AC2）", () => {
 		expect(result.content[0]?.text).toBe("Todo 0/1\n[ ] a");
 	});
 
+	it("plan.requireSingleInProgress: true 时两条 in_progress 被 plan.ts 拦下，不落账", async () => {
+		useConfig({ plan: { requireSingleInProgress: true } });
+		const harnessed = harness({ cwd: makeTempDir("cwd") });
+		piTodo(harnessed.api);
+
+		await expect(callTool(harnessed, { tasks: [{ content: "a", status: "in_progress" }, { content: "b", status: "in_progress" }] })).rejects.toThrow(
+			"todo: 2 tasks are in_progress, max is 1",
+		);
+		expect(harnessed.entries).toEqual([]);
+		expect(harnessed.widgets).toEqual([]);
+	});
+
+	it("ui.widget.completedStyle 决定已完成行怎么包：strikethrough / dim / plain", async () => {
+		const tasks = [{ content: "a", status: "pending" }, { content: "b", status: "completed" }];
+		const theme = {
+			strikethrough: (text: string) => `~~${text}~~`,
+			style: (text: string, options: { dim?: boolean }) => (options.dim ? `·${text}·` : text),
+		};
+
+		for (const [completedStyle, expected] of [
+			["strikethrough", "~~[x] b~~"],
+			["dim", "·[x] b·"],
+			["plain", "[x] b"],
+		] as const) {
+			useConfig({ ui: { widget: { completedStyle } } });
+			const harnessed = harness({ cwd: makeTempDir("cwd"), theme });
+			piTodo(harnessed.api);
+			emit(harnessed, "session_start");
+
+			await callTool(harnessed, { tasks });
+
+			expect(harnessed.lines(80)).toEqual(["Todo 1/2", "[ ] a", expected]);
+		}
+	});
+
 	it("校验失败：抛出错误、不写 entry、不重画", async () => {
 		useConfig();
 		const harnessed = harness();
@@ -320,6 +378,85 @@ describe("index：会话事件与 widget（AC3）", () => {
 function makeTasks(count: number): Array<{ content: string; status: string }> {
 	return Array.from({ length: count }, (_, index) => ({ content: `task ${index + 1}`, status: "pending" }));
 }
+
+describe("index：lifecycle.onFinish（T12）", () => {
+	it("fade：整表完成后 agent_settled 一到就收起；没全完成或空表都不动", async () => {
+		useConfig({ lifecycle: { onFinish: "fade" } });
+		const harnessed = harness({ cwd: makeTempDir("cwd") });
+		piTodo(harnessed.api);
+		emit(harnessed, "session_start");
+
+		// 空表：不能把「还没开始」当「干完了」
+		emit(harnessed, "agent_settled");
+		expect(harnessed.lines(80)).toEqual([]);
+
+		await callTool(harnessed, { tasks: [{ content: "a", status: "completed" }, { content: "b", status: "pending" }] });
+		emit(harnessed, "agent_settled");
+		expect(harnessed.lines(80)).toEqual(["Todo 1/2", "[x] a", "[ ] b"]);
+
+		await callTool(harnessed, { tasks: [{ content: "a", status: "completed" }] });
+		emit(harnessed, "agent_settled");
+		expect(harnessed.widgets.at(-1)?.content).toBeUndefined();
+		expect(harnessed.lines(80)).toEqual([]);
+		expect(harnessed.entries).toHaveLength(2);
+	});
+
+	it("model / keep（默认 model）：压根不监听 agent_settled", async () => {
+		for (const onFinish of [undefined, "keep"] as const) {
+			useConfig(onFinish === undefined ? undefined : { lifecycle: { onFinish } });
+			const harnessed = harness({ cwd: makeTempDir("cwd") });
+			piTodo(harnessed.api);
+
+			expect(harnessed.handlers.has("agent_settled")).toBe(false);
+		}
+	});
+});
+
+describe("index：折叠键（T11）", () => {
+	it("按一次收起、再按一次展开：widget 消失又回来，任务表一寸不动", async () => {
+		useConfig();
+		const harnessed = harness({ cwd: makeTempDir("cwd") });
+		piTodo(harnessed.api);
+		await callTool(harnessed, { tasks: [{ content: "a", status: "pending" }, { content: "b", status: "completed" }] });
+
+		expect(harnessed.shortcuts.map((call) => call.key)).toEqual(["alt+t"]);
+		expect(harnessed.shortcuts[0]?.options.description).toBe("Toggle the todo widget");
+
+		await harnessed.fireShortcut();
+
+		expect(harnessed.widgets.at(-1)?.content).toBeUndefined();
+		expect(harnessed.lines(80)).toEqual([]);
+		expect(harnessed.entries).toHaveLength(1);
+		expect(harnessed.entries[0]?.data).toEqual({ tasks: [{ content: "a", status: "pending" }, { content: "b", status: "completed" }] });
+
+		await harnessed.fireShortcut();
+
+		expect(harnessed.lines(80)).toEqual(["Todo 1/2", "[ ] a", "[x] b"]);
+		expect(harnessed.entries).toHaveLength(1);
+	});
+
+	it("收起之后会话事件照旧回放，但 widget 保持收起", async () => {
+		useConfig();
+		const harnessed = harness({ cwd: makeTempDir("cwd") });
+		piTodo(harnessed.api);
+		await callTool(harnessed, { tasks: [{ content: "a", status: "pending" }] });
+		await harnessed.fireShortcut();
+
+		emit(harnessed, "session_compact");
+
+		expect(harnessed.widgets.at(-1)?.content).toBeUndefined();
+		expect(harnessed.lines(80)).toEqual([]);
+		expect(harnessed.entries).toHaveLength(1);
+	});
+
+	it("配置成 off：压根不注册按键", async () => {
+		useConfig({ ui: { shortcut: { toggle: "off" } } });
+		const harnessed = harness({ cwd: makeTempDir("cwd") });
+		piTodo(harnessed.api);
+
+		expect(harnessed.shortcuts).toEqual([]);
+	});
+});
 
 describe("index：/todos 命令（T8）", () => {
 	it("注册命令 todos，带一句 description", () => {

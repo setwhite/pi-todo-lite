@@ -7,9 +7,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { Component, TUI } from "@earendil-works/pi-tui";
+import type { Component, KeyId, TUI } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { loadConfig } from "./config.ts";
+import { loadConfig, type Config } from "./config.ts";
 import { STATE_CUSTOM_TYPE, formatTasks, replayTasks, validateTasks, type Task } from "./plan.ts";
 import { exportFileName, parseChecklist, renderList, renderWidget, toMarkdown, type WidgetConfig } from "./view.ts";
 
@@ -88,20 +88,40 @@ export default function piTodo(pi: ExtensionAPI): void {
 	/** 组件工厂给的 TUI 句柄，用来在状态变化后重画；没有 UI 时一直是 undefined。 */
 	let tui: TUI | undefined;
 
-	/** 组件只读 live 状态、不缓存，所以 invalidate 空转。 */
-	const widget = (): Component & { dispose?(): void } => ({
-		render: (width: number) => renderWidget(tasks, widgetConfig, width) ?? [],
-		invalidate: () => {},
-	});
+	/** 收起 / 展开：只切视图，不碰账（折叠键与 `lifecycle.onFinish: "fade"` 共用）。 */
+	let collapsed = false;
 
-	/** 重设 widget：widget 关掉、没有 UI、宿主不认 setWidget 时都静默跳过。 */
+	/** 主题里我们用到的两个方法（结构化类型，省得 import pi 内部的 Theme）。 */
+	type StyleTheme = { strikethrough(text: string): string; style(text: string, options: { dim?: boolean }): string };
+
+	/** 已完成行的样式（`ui.widget.completedStyle`）：theme 决定观感，config 决定用哪种。 */
+	const styleCompleted = (theme: StyleTheme, style: Config["ui"]["widget"]["completedStyle"]): ((text: string) => string) => {
+		if (style === "plain") return (text) => text;
+		if (style === "strikethrough") return (text) => theme.strikethrough(text);
+		return (text) => theme.style(text, { dim: true });
+	};
+
+	/** 组件只读 live 状态、不缓存，所以 invalidate 空转；样式每次 render 现算（主题与配置都可能换）。 */
+	const widget = (theme: StyleTheme): Component & { dispose?(): void } => {
+		const lineStyle = styleCompleted(theme, config.ui.widget.completedStyle);
+		return {
+			render: (width: number) => renderWidget(tasks, { ...widgetConfig, styleCompleted: lineStyle }, width) ?? [],
+			invalidate: () => {},
+		};
+	};
+
+	/** 重设 widget：widget 关掉、没有 UI、宿主不认 setWidget 时都静默跳过；收起时明确传 undefined 让宿主收掉。 */
 	const draw = (ctx: ExtensionContext): void => {
 		if (!config.ui.widget.enabled || !ctx.hasUI || typeof ctx.ui?.setWidget !== "function") return;
+		if (collapsed) {
+			ctx.ui.setWidget(WIDGET_KEY, undefined);
+			return;
+		}
 		ctx.ui.setWidget(
 			WIDGET_KEY,
-			(handle) => {
+			(handle, theme) => {
 				tui = handle;
-				return widget();
+				return widget(theme);
 			},
 			{ placement: widgetConfig.placement },
 		);
@@ -151,7 +171,12 @@ export default function piTodo(pi: ExtensionAPI): void {
 		executionMode: "sequential",
 		execute: async (_toolCallId, params) => {
 			// 校验失败照原样抛给 pi，这里不动任何状态
-			const next = validateTasks(params, { toolName, maxTasks: config.plan.maxTasks, maxContentChars: config.plan.maxSubjectChars });
+			const next = validateTasks(params, {
+				toolName,
+				maxTasks: config.plan.maxTasks,
+				maxContentChars: config.plan.maxSubjectChars,
+				requireSingleInProgress: config.plan.requireSingleInProgress,
+			});
 			commit(next);
 			// details 留空：状态只写 custom entry，回放不读 toolResult 的 details
 			return { content: [{ type: "text", text: formatTasks(tasks) }], details: undefined };
@@ -232,6 +257,26 @@ export default function piTodo(pi: ExtensionAPI): void {
 				}
 				notify(ctx, USAGE, "warning");
 			},
+		});
+	}
+
+	if (config.ui.shortcut.toggle !== "off") {
+		// 键位字符串原样交给 pi：它认不出的键匹配不上任何输入，不用我们校验
+		pi.registerShortcut(config.ui.shortcut.toggle as KeyId, {
+			description: "Toggle the todo widget",
+			handler: (ctx) => {
+				collapsed = !collapsed;
+				draw(ctx);
+			},
+		});
+	}
+
+	if (config.lifecycle.onFinish === "fade") {
+		// fade：整表完成后再等模型这波收工（agent_settled = 没有待办的工具调用），把 widget 收起
+		pi.on("agent_settled", (_event, ctx) => {
+			if (tasks.length === 0 || tasks.some((task) => task.status !== "completed")) return;
+			collapsed = true;
+			draw(ctx);
 		});
 	}
 

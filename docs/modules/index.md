@@ -6,9 +6,11 @@
 
 | 东西 | 说明 |
 |---|---|
-| 工具 `${config.tools.todo.name}`（默认 `todo`） | `label: "Todo"`；参数 schema 三个字段全必填、零字段文案、内外层都 `additionalProperties: false`（与 `plan.ts` 的未知键拒绝同一件事）；`executionMode: "sequential"`；handler：`validateTasks` → `appendEntry(STATE_CUSTOM_TYPE, { tasks })` → 更新内存状态 → `requestRender()` → 返回 `formatTasks` 的文本（`details` 留空，状态只写 custom entry） |
+| 工具 `${config.tools.todo.name}`（默认 `todo`） | `label: "Todo"`；参数 schema 三个字段全必填、零字段文案、内外层都 `additionalProperties: false`（与 `plan.ts` 的未知键拒绝同一件事）；`executionMode: "sequential"`；handler：`validateTasks`（带上 `plan.maxTasks` / `plan.maxSubjectChars` / `plan.requireSingleInProgress`）→ `appendEntry(STATE_CUSTOM_TYPE, { tasks })` → 更新内存状态 → `requestRender()` → 返回 `formatTasks` 的文本（`details` 留空，状态只写 custom entry） |
 | 事件 `session_start` / `session_compact` / `session_tree` | 调 `replayTasks(ctx.sessionManager.getBranch())` 后重画 widget（三个事件同一套） |
-| widget key `"todo"` | 组件工厂返回 `{ render(width), invalidate() }`；组件每次 render 都读 live 状态、不缓存（`invalidate()` 空转）；`placement` 取配置；状态变化后 `requestRender()`；`ui.widget.enabled: false` 时压根不设 widget |
+| 事件 `agent_settled` | **只在 `lifecycle.onFinish: "fade"` 时注册**：表非空且全 `completed` 就收起 widget（`collapsed = true` + 重画）；空表不动 |
+| 快捷键 `ui.shortcut.toggle` | 值不是 `"off"` 就 `registerShortcut(键位, { description: "Toggle the todo widget", handler })`，handler 只翻 `collapsed` 再重画；键位字符串原样交给 pi（认不出的键匹配不上输入）。`"off"` 时不注册 |
+| widget key `"todo"` | 组件工厂 `(tui, theme) => { render(width), invalidate() }`；组件每次 render 都读 live 状态、不缓存（`invalidate()` 空转）；已完成行的样式由 `ui.widget.completedStyle` 决定（`theme.strikethrough` / `theme.style(text, { dim: true })` / 原样），**贴样式在截断之后**所以不吃宽度；`placement` 取配置；状态变化后 `requestRender()`；`ui.widget.enabled: false` 或收起（`collapsed`）时压根不设 widget（收起时传 `undefined` 让宿主收掉） |
 | 命令 `/todos` | 名字是常量 `COMMAND_NAME`（`"todos"`，撞名问题见 `docs/TODO.md` T8 偏差）；`commands.todos.enabled: false` 时压根不注册；`description: "Show or edit the todo list"`；子命令见下 |
 
 ### `/todos` 子命令
@@ -35,6 +37,6 @@
 
 ## 取舍
 
-- 不注册 status line、不做 nudge、不监听 `agent_settled`（M2 的 fade 才会加）。
+- 不注册 status line、不做 nudge。`agent_settled` 只在 fade 时监听，而且只收起 widget、不碰 prompt —— 不做 nudge 的结论（不打断缓存前缀）不受影响。
 - 命令名不做成配置键：加了要动 `docs/CONFIG.md` 冻结的 21 键（见 `docs/TODO.md` T8 偏差），现在写成常量。
 - 接线用 fake api + fake ctx（`registerTool` / `registerCommand` / `on` / `appendEntry` / `ui.setWidget` / `ui.notify` / `sessionManager.getBranch`）测，见 `test/index.test.ts`：只断言**我们交给 pi 的东西**（注册的文案与 schema、写出的 entry、widget 的行、notify 的文案）与命令真正落盘的文件，不测 pi 自己的校验、事件顺序与渲染。真机在 T7（TUI）与 T8 的 RPC 跑。

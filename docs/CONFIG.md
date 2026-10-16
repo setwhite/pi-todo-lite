@@ -38,7 +38,7 @@
 | `ui.widget.header` | `"Todo {done}/{total} · {doing} doing"` | 带占位符的模板 | 表头那行写什么（只放计数，不写任务文本） | 想显示「还剩几件」 | 占位符只有三个：`{done}` `{total}` `{doing}`；`{doing}` 为 0 时「· 0 doing」整段不显示，全完成就是 `Todo 5/5`；写错的占位符当普通文本（不报错） |
 | `ui.widget.glyphs` | `{ pending: "[ ]", inProgress: "[-]", completed: "[x]" }` | 三个短字符串 | 三种状态的字形 | 想换符号 / 保持纯 ASCII | 字形太长会挤掉任务文本 |
 | `ui.widget.completedStyle` | `"strikethrough"` | strikethrough / dim / plain | 已完成的样式 | 某些终端删除线不好看 | 无 |
-| `ui.shortcut.toggle` | `"alt+t"` | 键位字符串 | 折叠 / 展开 widget | 想换键 | `ctrl+shift+t` 是 pi 内建 `app.session.tree` 的默认键（`docs/keybindings.md:17`），别用；撞键后 pi 有诊断但行为是哪个先抢到算哪个 |
+| `ui.shortcut.toggle` | `"alt+t"` | 键位字符串 / `off` | 折叠 / 展开 widget（收起 = 整块消失，再按一次回来；任务表一寸不动） | 想换键，或者不想要这个键 | `ctrl+shift+t` 是 pi 内建 `app.session.tree` 的默认键（`docs/keybindings.md:17`），别用；撞键后 pi 有诊断但行为是哪个先抢到算哪个；写 `off` 就压根不注册这个键，pi 认不出的键位字符串不报错、只是永远不触发 |
 
 > TUI 上所有文案（表头、字形、`/todos` 输出、导入导出的提示）**统一英文、简短直白** —— 你定的。
 
