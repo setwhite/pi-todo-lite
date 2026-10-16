@@ -122,9 +122,14 @@
     - AC2 `/todos clear` 后 widget 消失，会话里多一条空表账
     - AC3 `ctx.ui` 缺失（RPC / print）时不抛错
   - 验收证据指针：
-    - AC1
-    - AC2
-    - AC3
+    - AC1 `test/view.test.ts` 的 `renderList`（5 条）+ `test/index.test.ts` 的 `/todos：notify 出整张表，不截断不省条目（widget 仍按 maxLines 截断）`（20 条 × `maxLines: 3` → notify 21 行、widget 仍 3 行）、`注册命令 todos，带一句 description`
+    - AC2 `test/index.test.ts` 的 `/todos clear：写一条空表账、widget 消失、notify 一句`（最后一条 entry 是 `{tasks: []}`、`lines(80)` 变 `[]`、notify 是 `Cleared`/info）
+    - AC3 `test/index.test.ts` 的 `ctx.ui 缺失（print / JSON / RPC）时不抛错，状态照旧落账`（ui 只有 `{}` → `run("")` / `run("clear")` 都不抛、空表账照写）、`commands.todos.enabled 为 false 时不注册命令，工具与 widget 照常`、`不认识的子命令：warning 用法提示，不动状态`
+    - 真机（T8–T10 共用一次 RPC 跑）：`pi --mode rpc -ne -e <仓库绝对路径>/index.ts -t todo`，stdin 逐条喂 `{"type":"prompt","message":…}`：登记三步 → `/todos` → `/todos export` → `/todos clear` → `/todos import <导出的文件名>` → `/todos`。stdout 的 `extension_ui_request`（notify）逐条：`Todo 0/3 · 1 doing` + 三行条目 → `Exported 3 tasks to …\todo-20261016-2342.md` → `Cleared` → `Imported 3 tasks from …` → `Todo 0/3` + 三行条目；106 行 RPC 输出里没有 `extension_error`、没有栈行
+    - 口径记录：RPC 下 `ctx.hasUI` 其实是 true、`notify` 走 RPC 的 extension UI 协议（`docs/rpc-extension-ui.md`）；真正没有 `ctx.ui` 的是 print / JSON 模式（这两个模式也没有命令入口），所以 AC3 的「RPC」一半按「不抛错 + notify 送达」真机收，「print」一半按单测 + T7 的加载跑收
+    - 偏差：命令名写死常量 `todos`（`index.ts:24`）—— 做成配置键会动 `docs/CONFIG.md` 冻结的 21 键与 `docs/PLAN.md` 的「不做项」，需要单独批；本机 rpiv-todo 装的 `/todos` 撞名问题因此仍未解（见 T7 观察 ②）
+    - audit 一轮（观察）：`commands.todos.enabled: false` 时命令没注册，宿主会把整句当普通 prompt 交给模型（与 T7 审计里 `/exit` 被当消息同款）—— 已写进 `docs/CONFIG.md` 的代价栏，代码不动（扩展没有拦未知命令的能力）
+    - 真机日志（可复核路径，跑完留在 temp）：`%LOCALAPPDATA%\Temp\pi-todo-rpc\rpc-a.log`（登记 → `/todos` → `export` → `export extra` → `clear` → `import` → `/todos`，145 行）、`rpc-b.log`（导出目录位置是文件 → error notify，2 行）、`rpc-c.log`（双空格路径 / 配对引号 / 坏名字模板，15 行）；三条日志 **0 栈行、0 `extension_error`**。重跑：把同样的 stdin 逐行喂给 `pi --mode rpc -ne -e <仓库绝对路径>/index.ts -t todo`（`PI_CODING_AGENT_SESSION_DIR` 指到 temp 免得污染真会话；run B/C 靠 `PI_CODING_AGENT_DIR` 里放的坏配置，不需要模型调用）
   - 前置：T6
 
 - [ ] T9 /todos export
@@ -133,8 +138,11 @@
     - AC1 产出的 markdown 只有 `- [ ] x` / `- [x] x` 两种行，状态齐全
     - AC2 文件名带时间戳，重复导出不覆盖
   - 验收证据指针：
-    - AC1
-    - AC2
+    - AC1 `test/view.test.ts` 的 `toMarkdown` 三条（`只有 - [ ] 与 - [x] 两种行，in_progress 归到未勾选` / `空表给空串` / `顺序与 content 原样保留`）；真机 RPC 跑里导出的 `todo-20261016-2342.md` 逐字是 `- [ ] 读 config.ts\n- [ ] 跑测试\n- [ ] 写文档`（3 条、无尾换行）
+    - AC2 `test/view.test.ts` 的 `exportFileName` 三条（`{timestamp}` → `YYYYMMDD-HHmm`、个位补零、写几次替几次）；`test/index.test.ts` 的 `写到 cwd，文件名带时间戳，内容是 toMarkdown，notify 带绝对路径`（`/^todo-\d{8}-\d{4}\.md$/`）、`同名不覆盖：占住的名字让位（-2），旧文件原样留着`（`wx` 写入，EEXIST 就试 `name-2`…）、`commands.export.dir 与 fileNamePattern 跟着配置走，目录不存在就建`、`commands.export.enabled 为 false：warning 提示，一个文件都不写`
+    - 口径记录：`{timestamp}` 是本地时间的分钟粒度；「不覆盖」靠 `wx` + 让位后缀（不是靠时间戳够细），同一分钟内连导两次得到 `name.md` 与 `name-2.md`；`docs/CONFIG.md` 里「模板里没有它就会覆盖同名文件」这句因此改成了让位口径
+    - 偏差：AC1 的「状态齐全」按「每条任务都在 + 完成与否都有表达」收 —— markdown checklist 只有两态，`in_progress` 导出成 `- [ ]`；真机跑里读回后表头从 `Todo 0/3 · 1 doing` 变成 `Todo 0/3`，就是这条损失的现场
+    - audit 一轮：① 写盘失败不再抛回宿主 —— `export` 整段 try/catch → error `notify`（单测 `IO 失败只 notify error，不抛给宿主：目录位置已经是文件（EEXIST）`；真机 `rpc-b.log` 里是 `notify[error] EEXIST: file already exists, mkdir '…\occupied'`，不再是 `extension_error`）；② `fileNamePattern` 只当文件名：空 / `.` / `..` / 带 `/`、`\` → `commands.export.fileNamePattern must be a file name, got "…"` error notify，一个文件都不写、也不为一个注定失败的名字建目录（单测同名 + 真机 `rpc-c.log`，`$TMP` 根下没有 `escaped-*`）；③ `clear` / `export` 多给参数从「静默忽略」改成用法 warning，`clear now please` 不再清表（单测 `clear / export 多给参数：用法 warning，不动状态、不写文件` + 真机 run A 第 4 条 notify）
   - 前置：T8
 
 - [ ] T10 /todos import
@@ -144,9 +152,11 @@
     - AC2 表非空时拒绝并给出提示，不动现有表
     - AC3 不认识的行忽略，不抛错
   - 验收证据指针：
-    - AC1
-    - AC2
-    - AC3
+    - AC1 `test/view.test.ts` 的 `读回 toMarkdown 的产物：条数与状态一致（in_progress 只能退成 pending）`；端到端 `test/index.test.ts` 的 `T9 的产物原样读回：条数与状态一致，落账并重画`（export → clear → import，entry 与 widget 都是 `[ ] a` / `[x] b`）；真机 RPC 跑里 `Imported 3 tasks from …`
+    - AC2 `test/index.test.ts` 的 `表非空时拒绝：warning，不动现有表`（`Table is not empty. Run /todos clear first.`，entries 一条不多一条不改）
+    - AC3 `test/view.test.ts` 的 `不认识的行一律忽略：标题、普通文本、没有勾选框的列表项` / `行首允许空白，content 两端 trim；勾选框后没内容的行忽略` / `CRLF 与空文本`；`test/index.test.ts` 的 `不认识的行忽略；超上限（21 条）时报 plan.ts 的消息且不落账` / `文件读不到：error 提示，不落账` / `缺文件名 / import 关掉：warning，不落账`
+    - 口径记录：先 `parseChecklist`（宽松解析）再 `validateTasks`（严格校验：20 条、120 字符、控制字符），脏文件由 `plan.ts` 拦下、消息原样进 notify；路径支持绝对与相对（相对按 `ctx.cwd` 解析）
+    - audit 一轮：import 的目标取子命令后面**整段原文**（连续空格是路径的一部分），只剥一层配对引号 —— 单测 `路径里的连续空格是路径的一部分，配对引号会被剥掉`（`a  b.md` 与 `"a  b.md"` 都能读）；真机 `rpc-c.log` 两条 `Imported 1 task from …\a  b.md` 逐字 —— 原来的 `split(/\s+/)` + `rest.join(" ")` 会把双空格折成一个
   - 前置：T9
 
 - [ ] T11 折叠键
