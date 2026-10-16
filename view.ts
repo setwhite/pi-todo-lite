@@ -56,6 +56,16 @@ function renderHeader(template: string, counts: { done: number; total: number; d
 	return text.replaceAll("{done}", String(counts.done)).replaceAll("{total}", String(counts.total)).replaceAll(DOING, String(counts.doing));
 }
 
+/** 表头要的三个计数，永远按整张表算。 */
+function countTasks(tasks: readonly Task[]): { done: number; total: number; doing: number } {
+	const counts = { done: 0, total: tasks.length, doing: 0 };
+	for (const task of tasks) {
+		if (task.status === "completed") counts.done += 1;
+		else if (task.status === "in_progress") counts.doing += 1;
+	}
+	return counts;
+}
+
 /** 条目行：字形 + 空格 + content（content 由 plan.ts 保证单行、无控制字符）。 */
 function renderRow(task: Task, glyphs: WidgetConfig["glyphs"]): string {
 	const glyph = task.status === "completed" ? glyphs.completed : task.status === "in_progress" ? glyphs.inProgress : glyphs.pending;
@@ -80,11 +90,7 @@ function layout(tasks: readonly Task[], budget: number): { shown: readonly Task[
 export function renderWidget(tasks: readonly Task[], cfg: WidgetConfig, width: number): string[] | undefined {
 	if (tasks.length === 0) return undefined;
 
-	const counts = { done: 0, total: tasks.length, doing: 0 };
-	for (const task of tasks) {
-		if (task.status === "completed") counts.done += 1;
-		else if (task.status === "in_progress") counts.doing += 1;
-	}
+	const counts = countTasks(tasks);
 
 	const visible = cfg.showCompleted ? tasks : tasks.filter((task) => task.status !== "completed");
 	const budget = cfg.maxLines - 1;
@@ -94,4 +100,51 @@ export function renderWidget(tasks: readonly Task[], cfg: WidgetConfig, width: n
 	if (hidden > 0 && budget > 0) lines.push(`+${hidden} more`);
 
 	return lines.map((line) => truncate(line, width));
+}
+
+/**
+ * `/todos` 的清单文本：一行表头 + 每条任务一行，**不截断、不省条目** ——
+ * 不受 `maxLines` 与 `showCompleted` 约束（清单的作用就是全看一遍）。
+ */
+export function renderList(tasks: readonly Task[], cfg: WidgetConfig): string {
+	return [renderHeader(cfg.header, countTasks(tasks)), ...tasks.map((task) => renderRow(task, cfg.glyphs))].join("\n");
+}
+
+/**
+ * `/todos export` 的 markdown：一行一条，只有 `- [ ] x` / `- [x] x` 两种形状。
+ * `in_progress` 归到未勾选（markdown checklist 没有第三种状态）。
+ */
+export function toMarkdown(tasks: readonly Task[]): string {
+	return tasks.map((task) => `- [${task.status === "completed" ? "x" : " "}] ${task.content}`).join("\n");
+}
+
+/** checklist 的一行：`- [ ] 内容` / `- [x] 内容`，行首允许空白。 */
+const CHECKLIST = /^\s*-\s*\[(.)\]\s*(.+)$/;
+
+/**
+ * `/todos import` 吃进来的 markdown：只认 checklist 行，其余一律忽略（不报错）。
+ * `[x]` / `[X]` → `completed`，其它勾选态（含 `[-]`）→ `pending`；content 两端 trim。
+ */
+export function parseChecklist(text: string): Task[] {
+	const tasks: Task[] = [];
+	for (const line of text.split(/\r?\n/)) {
+		const match = CHECKLIST.exec(line);
+		if (match === null) continue;
+		const content = (match[2] ?? "").trim();
+		if (content === "") continue;
+		const mark = match[1];
+		tasks.push({ content, status: mark === "x" || mark === "X" ? "completed" : "pending" });
+	}
+	return tasks;
+}
+
+/** 两个字符的补零：20260102-0304 这种形状。 */
+function pad(value: number): string {
+	return String(value).padStart(2, "0");
+}
+
+/** `/todos export` 的文件名：模板里的 `{timestamp}` 替成 `YYYYMMDD-HHmm`（本地时间）。 */
+export function exportFileName(pattern: string, at: Date): string {
+	const stamp = `${at.getFullYear()}${pad(at.getMonth() + 1)}${pad(at.getDate())}-${pad(at.getHours())}${pad(at.getMinutes())}`;
+	return pattern.replaceAll("{timestamp}", stamp);
 }
