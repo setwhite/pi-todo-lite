@@ -5,15 +5,17 @@
 
 ## M1 · MVP
 
-- [ ] T1 仓库骨架
-  - 交付物：`package.json`（`name: pi-todo-lite`、`type: "module"`、`pi.extensions: "./index.ts"`、scripts `test` / `typecheck`、`files` 白名单、`peerDependencies` 四个宿主包范围写 `*`）、`tsconfig.json`（strict + `noEmit`）。`.gitignore` 已就位（`node_modules/`、`prompt/`）
+- [x] T1 仓库骨架
+  - 交付物：`package.json`（`name: pi-todo-lite`、`type: "module"`、`pi.extensions: ["./index.ts"]`、scripts `test` / `typecheck`、`files` 白名单、`peerDependencies` 四个宿主包范围写 `*`）、`tsconfig.json`（strict + `noEmit`）。`.gitignore` 已就位（`node_modules/`、`prompt/`）
   - 依赖（devDependencies）：`vitest`、`typescript`、`@types/node`、`@earendil-works/pi-coding-agent`、`@earendil-works/pi-tui`、`typebox`；`dependencies` 保持为空
   - 验收：
     - AC1 `pnpm install` 成功，`pnpm typecheck`、`pnpm test` 都能跑（此时可以零用例）
     - AC2 锁文件入库，`node_modules/` 不入库
   - 验收证据指针：
-    - AC1
-    - AC2
+    - AC1 `package.json`（`typecheck` = `tsc --noEmit`、`test` = `vitest run --passWithNoTests`、`packageManager: pnpm@12.3.4`）；实跑 node v26.7.0：`pnpm install` exit 0、`pnpm install --frozen-lockfile` exit 0、`pnpm typecheck` exit 0、`pnpm test` exit 0（0 用例）
+    - AC1 两处偏差：tsc 零 TS 输入报 TS18003，故 `index.ts` 先落占位（T6 填实）；`pi.extensions` 取字符串数组 —— 宿主只接受数组（`@earendil-works/pi-coding-agent/dist/core/pi-manifest.js:16`）
+    - AC2 `pnpm-lock.yaml` 随 T1 提交入库；`pnpm-workspace.yaml` 两段：`allowBuilds` 手工 deny `@google/genai` / `protobufjs`（默认会报 `ERR_PNPM_IGNORED_BUILDS`）、`minimumReleaseAgeExclude` 11 条由 pnpm 12 自动写入（删掉后 `pnpm install --frozen-lockfile` 报 `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`）
+    - AC2 `git check-ignore -v node_modules` → `.gitignore:1:node_modules/`
   - 前置：无
 
 - [ ] T2 config.ts
