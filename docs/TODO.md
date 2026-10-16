@@ -115,7 +115,7 @@
 
 ## M2 · 命令与配置收口
 
-- [ ] T8 /todos 骨架 + 清单 + clear
+- [x] T8 /todos 骨架 + 清单 + clear
   - 交付物：命令注册、`renderList`、`/todos clear`
   - 验收：
     - AC1 `/todos` 全列清单（不截断、不省条目），走 `ctx.ui.notify`
@@ -132,7 +132,7 @@
     - 真机日志（可复核路径，跑完留在 temp）：`%LOCALAPPDATA%\Temp\pi-todo-rpc\rpc-a.log`（登记 → `/todos` → `export` → `export extra` → `clear` → `import` → `/todos`，145 行）、`rpc-b.log`（导出目录位置是文件 → error notify，2 行）、`rpc-c.log`（双空格路径 / 配对引号 / 坏名字模板，15 行）；三条日志 **0 栈行、0 `extension_error`**。重跑：把同样的 stdin 逐行喂给 `pi --mode rpc -ne -e <仓库绝对路径>/index.ts -t todo`（`PI_CODING_AGENT_SESSION_DIR` 指到 temp 免得污染真会话；run B/C 靠 `PI_CODING_AGENT_DIR` 里放的坏配置，不需要模型调用）
   - 前置：T6
 
-- [ ] T9 /todos export
+- [x] T9 /todos export
   - 交付物：`toMarkdown`、`/todos export`（文件名按 `commands.export.fileNamePattern`，目录按 `commands.export.dir`，默认项目根）
   - 验收：
     - AC1 产出的 markdown 只有 `- [ ] x` / `- [x] x` 两种行，状态齐全
@@ -145,7 +145,7 @@
     - audit 一轮：① 写盘失败不再抛回宿主 —— `export` 整段 try/catch → error `notify`（单测 `IO 失败只 notify error，不抛给宿主：目录位置已经是文件（EEXIST）`；真机 `rpc-b.log` 里是 `notify[error] EEXIST: file already exists, mkdir '…\occupied'`，不再是 `extension_error`）；② `fileNamePattern` 只当文件名：空 / `.` / `..` / 带 `/`、`\` → `commands.export.fileNamePattern must be a file name, got "…"` error notify，一个文件都不写、也不为一个注定失败的名字建目录（单测同名 + 真机 `rpc-c.log`，`$TMP` 根下没有 `escaped-*`）；③ `clear` / `export` 多给参数从「静默忽略」改成用法 warning，`clear now please` 不再清表（单测 `clear / export 多给参数：用法 warning，不动状态、不写文件` + 真机 run A 第 4 条 notify）
   - 前置：T8
 
-- [ ] T10 /todos import
+- [x] T10 /todos import
   - 交付物：`parseChecklist`、`/todos import <file>`
   - 验收：
     - AC1 T9 的产物能原样读回，条数与状态一致（PLAN AC5）
