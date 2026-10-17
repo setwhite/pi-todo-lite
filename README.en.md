@@ -1,12 +1,22 @@
 # pi-todo-lite
 
+English | [简体中文](README.md)
+
 A todo extension for [Pi](https://pi.dev): the model keeps one ordered task table, shown above the editor and replayed after compaction, branch switches and `--continue`. ~400 lines, zero runtime dependencies.
 
 ## Install
 
+From GitHub (works today, tracks the default branch):
+
 ```bash
-pi install npm:pi-todo-lite   # writes to ~/.pi/agent/settings.json
-pi -e npm:pi-todo-lite        # try it once, nothing persisted
+pi install git:github.com/setwhite/pi-todo-lite   # writes to ~/.pi/agent/settings.json
+pi -e git:github.com/setwhite/pi-todo-lite        # try it once, nothing persisted
+```
+
+From npm — **not available yet**, the package is unpublished (T15 in [`docs/TODO.md`](docs/TODO.md)):
+
+```bash
+pi install npm:pi-todo-lite
 ```
 
 Remove `@ssk_dev/rpiv-todo-lean` first if you have it installed — both register `todo`, so the model would see two tools with the same name.

@@ -1,12 +1,22 @@
 # pi-todo-lite
 
+[English](README.en.md) | 简体中文
+
 pi 的 todo 扩展：模型维护一张有序的 Todo 表，输入框上方常驻显示；compaction、切分支、`--continue` 之后照旧回放。约 400 行、零运行时依赖。
 
 ## 安装
 
+从 GitHub 装（现在就能用，跟默认分支走）：
+
 ```bash
-pi install npm:pi-todo-lite   # 写进 ~/.pi/agent/settings.json
-pi -e npm:pi-todo-lite        # 只试一次，不落 settings
+pi install git:github.com/setwhite/pi-todo-lite   # 写进 ~/.pi/agent/settings.json
+pi -e git:github.com/setwhite/pi-todo-lite        # 只试一次，不落 settings
+```
+
+从 npm 装 —— **暂不可用**，包还没发布（见 [`docs/TODO.md`](docs/TODO.md) 的 T15）：
+
+```bash
+pi install npm:pi-todo-lite
 ```
 
 本机还装着 `@ssk_dev/rpiv-todo-lean` 的话先卸掉 —— 两个都注册 `todo`，模型会看到两个同名工具。
