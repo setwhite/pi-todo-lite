@@ -1,6 +1,6 @@
 # TODO — pi-todo-lite
 
-> 状态：M1、M2 已验收（2026-10-17），M2.5（auto-clear）已验收（2026-10-18）；M3 未开工。
+> 状态：M1、M2 已验收（2026-10-17），M2.5（auto-clear）已验收（2026-10-18）；M3 进行中 —— T13 / T14 已验收（2026-10-18），T15 待做。
 > 任务按开发顺序排，每条单次会话可完成。验收标准（AC1–AC8）在 `docs/SPEC.md`，本文件不抄。
 > 做完就勾：证据是 `test/*.test.ts` 的用例名与真机日志，本文件不复述。
 
@@ -32,14 +32,14 @@
     - AC4 `docs/CONFIG.md` 的取值列与 `config.ts` 的枚举逐字一致，`docs.test.ts` 仍绿
 ## M3 · 发布
 
-- [~] T13 仓库元数据
+- [x] T13 仓库元数据
   - 交付物：`LICENSE`（MIT / setwhite）、`README.md` 补安装与用法、`README.en.md`、`package.json` 收尾（`files` 白名单、`keywords`、`repository`）；仓库 `github.com/setwhite/pi-todo-lite`（公开）
   - 验收：
     - AC1 `pnpm pack` 出来的内容只有源码与文档 —— 不含 `prompt/`、`test/`、`docs/`
     - AC2 README 里的安装命令与配置路径跟实际一致
   - 前置：T12
 
-- [~] T14 CI
+- [x] T14 CI
   - 交付物：`.github/workflows/ci.yml`（ubuntu Node 22 / 24 + windows Node 22，`pnpm install --frozen-lockfile`）
   - 验收：`pnpm typecheck && pnpm test` 在三个 job 上全绿（`docs/SPEC.md` 的 AC7）
   - 前置：T13
