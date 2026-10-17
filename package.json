@@ -1,13 +1,24 @@
 {
   "name": "pi-todo-lite",
   "version": "0.1.0",
+  "description": "Pi todo extension: one ordered task table above the editor, replayed after compaction, branch switch and --continue.",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "todo",
+    "tasks"
+  ],
   "type": "module",
   "license": "MIT",
   "author": "setwhite",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/setwhite/pi-todo-lite.git"
+  },
   "packageManager": "pnpm@12.3.4",
   "pi": {
     "extensions": [
-      "./index.ts"
+      "./src/index.ts"
     ]
   },
   "scripts": {
@@ -15,10 +26,7 @@
     "typecheck": "tsc --noEmit"
   },
   "files": [
-    "index.ts",
-    "plan.ts",
-    "view.ts",
-    "config.ts"
+    "src"
   ],
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
