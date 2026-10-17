@@ -4,8 +4,8 @@ import { join } from "node:path";
 import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import piTodo from "../index.ts";
-import { exportFileName } from "../view.ts";
+import piTodo from "../src/index.ts";
+import { exportFileName } from "../src/view.ts";
 
 const dirs: string[] = [];
 
@@ -136,7 +136,7 @@ async function callTool(harness: Harness, params: unknown): Promise<{ content: A
 /** 子命令认不出、参数给错时的用法提示（index.ts 的 USAGE）。 */
 const USAGE = "Usage: /todos [clear | export | import <file>]";
 
-/** 定稿 schema 的线上形状：比 prompt/my prompt new/schema.md 多一层 additionalProperties: false（见 docs/modules/plan.md）。 */
+/** 定稿 schema 的线上形状：比 prompt/my prompt new/schema.md 多一层 additionalProperties: false（见 docs/SPEC.md 的「协议」）。 */
 const SCHEMA = {
 	type: "object",
 	required: ["tasks"],
@@ -185,7 +185,8 @@ describe("index：注册（AC1）", () => {
 		expect(tool?.description).toBe("Keep a todo list for multi-step work.");
 		expect(tool?.promptGuidelines).toEqual([
 			"todo: Keep content short, one line, imperative.",
-			"todo: Use for work with 3+ steps; when the whole plan is done, send `tasks: []` to clear.",
+			"todo: Use for work with 3+ steps.",
+			"todo: When the whole plan is done, send `tasks: []` to clear.",
 		]);
 		expect(tool?.promptSnippet).toBeUndefined();
 		expect(JSON.parse(JSON.stringify(tool?.parameters))).toEqual(SCHEMA);
@@ -199,8 +200,23 @@ describe("index：注册（AC1）", () => {
 
 		expect(harnessed.tools[0]?.promptGuidelines).toEqual([
 			"tasklist: Keep content short, one line, imperative.",
-			"tasklist: Use for work with 3+ steps; when the whole plan is done, send `tasks: []` to clear.",
+			"tasklist: Use for work with 3+ steps.",
+			"tasklist: When the whole plan is done, send `tasks: []` to clear.",
 		]);
+	});
+
+	it("onFinish 不是 model 时不注册「干完发空表能清」那条 guideline", () => {
+		for (const onFinish of ["keep", "clear"] as const) {
+			useConfig({ lifecycle: { onFinish } });
+			const harnessed = harness();
+
+			piTodo(harnessed.api);
+
+			expect(harnessed.tools[0]?.promptGuidelines).toEqual([
+				"todo: Keep content short, one line, imperative.",
+				"todo: Use for work with 3+ steps.",
+			]);
+		}
 	});
 
 	it("一条 guideline 里写了多次 tool-name 时每处都替换", () => {
@@ -212,7 +228,7 @@ describe("index：注册（AC1）", () => {
 		expect(harnessed.tools[0]?.promptGuidelines).toEqual(["todo: a todo note"]);
 	});
 
-	it("模型侧文案对得上 PLAN AC6 的定稿数：description 37 字符、guidelines 合计 136 字符", () => {
+	it("模型侧文案对得上 spec AC6 的定稿数：description 37 字符、guidelines 合计 141 字符", () => {
 		useConfig();
 		const harnessed = harness();
 
@@ -220,8 +236,8 @@ describe("index：注册（AC1）", () => {
 
 		const tool = harnessed.tools[0];
 		expect(tool?.description?.length).toBe(37);
-		expect(tool?.promptGuidelines?.join("").length).toBe(136);
-		expect(tool?.promptGuidelines?.length).toBe(2);
+		expect(tool?.promptGuidelines?.join("").length).toBe(141);
+		expect(tool?.promptGuidelines?.length).toBe(3);
 	});
 
 	it("description 与 guidelines 跟着配置走", () => {
@@ -380,25 +396,36 @@ function makeTasks(count: number): Array<{ content: string; status: string }> {
 }
 
 describe("index：lifecycle.onFinish（T12）", () => {
-	it("fade：整表完成后 agent_settled 一到就收起；没全完成或空表都不动", async () => {
-		useConfig({ lifecycle: { onFinish: "fade" } });
-		const harnessed = harness({ cwd: makeTempDir("cwd") });
+	it("clear：整表完成后 agent_settled 一到就写空快照；没全完成或空表都不动", async () => {
+		useConfig({ lifecycle: { onFinish: "clear" } });
+		const harnessed = harness();
 		piTodo(harnessed.api);
 		emit(harnessed, "session_start");
 
 		// 空表：不能把「还没开始」当「干完了」
 		emit(harnessed, "agent_settled");
-		expect(harnessed.lines(80)).toEqual([]);
+		expect(harnessed.entries).toEqual([]);
 
 		await callTool(harnessed, { tasks: [{ content: "a", status: "completed" }, { content: "b", status: "pending" }] });
 		emit(harnessed, "agent_settled");
+		expect(harnessed.entries).toHaveLength(1);
 		expect(harnessed.lines(80)).toEqual(["Todo 1/2", "[x] a", "[ ] b"]);
 
 		await callTool(harnessed, { tasks: [{ content: "a", status: "completed" }] });
 		emit(harnessed, "agent_settled");
-		expect(harnessed.widgets.at(-1)?.content).toBeUndefined();
+
+		// 两次工具调用 + 自动清空那一条
+		expect(harnessed.entries).toHaveLength(3);
+		expect(harnessed.entries.at(-1)).toEqual({ type: "custom", customType: "pi-todo-state", data: { tasks: [] } });
 		expect(harnessed.lines(80)).toEqual([]);
-		expect(harnessed.entries).toHaveLength(2);
+
+		// 空快照就是最后一条有效快照：切分支 / compaction 之后表不会复活
+		emit(harnessed, "session_tree");
+		expect(harnessed.lines(80)).toEqual([]);
+
+		// 清空只动账、不摘 widget：下一波任务照常顶回来（fade 的收起做不到这一点）
+		await callTool(harnessed, { tasks: [{ content: "c", status: "pending" }] });
+		expect(harnessed.lines(80)).toEqual(["Todo 0/1", "[ ] c"]);
 	});
 
 	it("model / keep（默认 model）：压根不监听 agent_settled", async () => {

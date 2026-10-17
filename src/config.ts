@@ -18,7 +18,7 @@ export type Config = {
 		};
 		shortcut: { toggle: string };
 	};
-	lifecycle: { onFinish: "model" | "keep" | "fade" };
+	lifecycle: { onFinish: "model" | "keep" | "clear" };
 	commands: {
 		todos: { enabled: boolean };
 		export: { enabled: boolean; dir: string; fileNamePattern: string };
@@ -62,16 +62,18 @@ export const DEFAULTS: Config = {
 	guidance: {
 		description: "Keep a todo list for multi-step work.",
 		promptSnippet: "",
+		// 拆成三条：index.ts 按 onFinish 只过滤掉最后那条（keep / clear 档不告诉模型「发空表能清」）
 		promptGuidelines: [
 			"tool-name: Keep content short, one line, imperative.",
-			"tool-name: Use for work with 3+ steps; when the whole plan is done, send `tasks: []` to clear.",
+			"tool-name: Use for work with 3+ steps.",
+			"tool-name: When the whole plan is done, send `tasks: []` to clear.",
 		],
 	},
 };
 
 const PLACEMENTS = ["aboveEditor", "belowEditor"] as const;
 const COMPLETED_STYLES = ["strikethrough", "dim", "plain"] as const;
-const ON_FINISH = ["model", "keep", "fade"] as const;
+const ON_FINISH = ["model", "keep", "clear"] as const;
 const TOOL_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 /** 配置文件绝对路径：入参 > $PI_CODING_AGENT_DIR > ~/.pi/agent。 */

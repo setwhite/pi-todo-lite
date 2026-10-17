@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { Status, Task } from "../plan.ts";
-import { exportFileName, parseChecklist, renderList, renderWidget, toMarkdown, type WidgetConfig } from "../view.ts";
+import type { Status, Task } from "../src/plan.ts";
+import { exportFileName, parseChecklist, renderList, renderWidget, toMarkdown, type WidgetConfig } from "../src/view.ts";
 
 const CFG: WidgetConfig = {
 	maxLines: 9,

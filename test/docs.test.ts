@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DEFAULTS } from "../config.ts";
+import { DEFAULTS } from "../src/config.ts";
 
 /**
  * `docs/CONFIG.md` 与 `config.ts` 的三处对账（T12）：

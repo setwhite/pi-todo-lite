@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatTasks, replayTasks, validateTasks } from "../plan.ts";
+import { formatTasks, replayTasks, validateTasks } from "../src/plan.ts";
 
 const LIMITS = { toolName: "todo", maxTasks: 20, maxContentChars: 120 };
 

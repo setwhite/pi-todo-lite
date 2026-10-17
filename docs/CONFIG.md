@@ -1,16 +1,13 @@
-# 配置项说明
+# CONFIG · pi-todo-lite
 
-这份文档逐个讲每个配置项：**管什么、默认值、改了会怎样、代价是什么**。
+21 个键（2026-10-16 冻结）的默认值、取值范围与代价。这份是键表的唯一来源 —— `test/docs.test.ts` 拿它跟 `config.ts` 的 `DEFAULTS` 对账。要加键删键，先改 `docs/SPEC.md` 的「不做的」。
 
-21 个键与读法在 2026-10-16 已冻结；要加键或删键，先改 `docs/PLAN.md` 的「不做项」。
+## 1. 怎么读
 
-## 1. 配置文件怎么读
-
-- 路径：`<agent dir>/pi-todo/config.json`。`<agent dir>` 先看环境变量 `PI_CODING_AGENT_DIR`，没设就是 `~/.pi/agent`。
-- 扩展**只读不写**，不会帮你生成配置。
-- 文件不存在 → 全部用默认值，不报错。
-- JSON 写坏、字段名不认识、类型或枚举写错 → **直接抛错**，消息里带配置文件绝对路径 + 逐条 `字段路径: 原因`，会话启动就红给你看。
-- 数值超出范围 → **不报错，夹到上下限**（clamp）。比如 `maxLines: 50` 会变成 10。
+- 路径 `<agent dir>/pi-todo/config.json`：`<agent dir>` 先看 `$PI_CODING_AGENT_DIR`，没设就是 `~/.pi/agent`。
+- 扩展**只读不写**，不会帮你生成配置；文件不存在 → 全默认值，不报错。
+- JSON 坏 / 键名不认识 / 类型或枚举错 → **抛错**，消息带绝对路径与逐条 `字段路径: 原因`（会话启动就红）；数值越界 → **夹到上下限**，比如 `maxLines: 50` 变 10。
+- 理由见 `docs/DECISIONS.md#4`。
 
 ## 2. 键表（21 个键）
 
@@ -23,9 +20,7 @@
 | `plan.maxSubjectChars` | `120` | 20–400 | 每条 content 最长多少字符（按 Unicode code point 计，emoji 算 1） | 你写长句任务 | 80 列终端一行大概放得下 120 个英文字符；超了会换行，把 widget 的 10 行预算吃光 |
 | `plan.requireSingleInProgress` | `false`（默认放开并行） | true / false | 是否只允许一条 `in_progress` | 想收敛成一次只干一件时设 `true` | 放开后表头不能再说「现在在做哪件」，同一条 guideline 也得改成允许多条并行；设 `true` 时模型同时开两条会直接报错要求重写 |
 
-> **出处说明**：rpiv 这两项都没有 —— 它的配置只有 `guidance`、`maxWidgetLines`（默认 12，低于 3 回退默认，无上限）、`collapseKey`（默认 `ctrl+shift+t`，可设 `off`）三个字段（`@juicesharp/rpiv-todo/config.ts:5-16,37-41`）。任务条数不设限，溢出只在渲染时处理：先丢 completed，再砍非完成项的尾巴，尾部一行汇总（`state/selectors.ts:65-95`）。subject 不截长度，只校验非空 + 清掉终端控制字符（`state/state-reducer.ts:100`、`tool/sanitize.ts:8-24`）—— 本项目同规则但更早：`validateTasks` 连不可见格式字符（`\p{Cf}`：RLO / ZWSP / ZWJ …）一起拒，`replayTasks` 把老快照里的转义序列整条丢掉、其余压成空格，widget 因此不必再自己清，宽度按终端列数用 `truncateToWidth(line, width, "…")` 砍（`todo-overlay.ts:144`）。
->
-> `maxTasks` 20 和 `maxSubjectChars` 120 都是你定的；120 的依据是 80 列终端一行大概放得下这么多英文字符。
+> `20` 与 `120` 是 2026-10-16 定的：120 = 80 列终端一行大约放得下的英文字符数。这三个键 rpiv 都没有（它条数不设限、溢出只在渲染时处理）；我们在数据入口就处理：`validateTasks` 连 `\p{Cf}` 一起拒、`replayTasks` 把老快照里的转义序列丢掉，所以 widget 不必自己清。
 
 ### 组 2 · 屏幕上那块 widget
 
@@ -46,7 +41,7 @@
 
 | 键 | 默认 | 取值 | 管什么 | 什么时候想改 | 代价 |
 |---|---|---|---|---|---|
-| `lifecycle.onFinish` | `"model"` | model / keep / fade | 清单干完怎么收场 | 想让它自己消失 | `model` = 靠模型干完那次调用传空表；`keep` = 留着当本次会话的存档；`fade` = 整表完成后，等模型下一次**回复里没有工具调用**（说明它这波活干完、开始纯聊天）时自动收起 —— 事件驱动，不设时钟不设秒数 |
+| `lifecycle.onFinish` | `"model"` | model / keep / clear | 清单干完怎么收场 | 想让它自己消失、或者自己清掉 | `model` = 靠模型干完那次调用传空表，**只有这一档**会告诉模型「干完发 `tasks: []`」；`keep` = 留着当本次会话的存档；`clear` = 整表完成后，等模型下一次**回复里没有工具调用**（说明它这波活干完、开始纯聊天）时写一条空表快照，widget 跟着变空（理由见 `docs/DECISIONS.md#5`）。`clear` 是事件驱动，不设时钟不设秒数 |
 
 ### 组 4 · 命令
 
@@ -60,7 +55,7 @@
 
 > `/todos` 打清单走对话区底部那行灰字（`notify`，多行）：不进模型上下文、不写会话文件、不花 token。
 >
-> 命令名固定 `todos`，不做成配置键（理由见 `docs/modules/index.md` 的取舍与 `docs/TODO.md` T8 偏差）。
+> 命令名固定 `todos`，不做成配置键 —— 理由与撞名问题见 `docs/SPEC.md` 的「其他 → 已知偏差」。
 
 ### 组 5 · 给模型看的文案
 
@@ -68,9 +63,9 @@
 |---|---|---|---|---|---|
 | `guidance.description` | 我们的成品（37 字符） | 字符串 | 覆盖工具描述 | 换模型（deepseek / gemini）措辞要试 | 写长了每轮都付 token |
 | `guidance.promptSnippet` | `""` | 字符串 | 覆盖工具清单那行 `- todo: …` | 想省 token | 留空即不出现；`codemode.mode: "only"` 下这行本来就不渲染 |
-| `guidance.promptGuidelines` | 我们的成品（2 条，占位符 146 / 替成 `todo` 后 136 字符） | 字符串数组 | 覆盖 guidelines | 同上 | **整组替换，不是合并**；写太多每轮都付 |
+| `guidance.promptGuidelines` | 我们的成品（3 条，占位符 156 / 替成 `todo` 后 141 字符；`keep` / `clear` 档少掉空表那条 = 80 字符） | 字符串数组 | 覆盖 guidelines | 同上 | **整组替换，不是合并**；写太多每轮都付 |
 
-模型侧文案定稿在 `prompt/my prompt new/`（description / snippet / guidelines / schema，2026-10-16），T6 搬进 `index.ts` 之后代码就是唯一副本；整个 `prompt/` 不进仓库、不进 npm 包。
+模型侧文案的定稿正文在 `config.ts` 的 `DEFAULTS.guidance.*` —— 代码是唯一副本；`prompt/` 是本机的对照素材，不进仓库、不进 npm 包。
 
 **上限数字（120 字符 / 20 条）不写进任何文案** —— 它会跟本文件的配置脱钩，改了配置文案就成了假话；真被拦下时报错消息会带出真实上限。
 
@@ -113,18 +108,3 @@
 ## 5. 代价提醒
 
 每多一个键 = 多一份校验代码 + 多一条文档 + 多一种「自己配错然后来查为什么」的机会。判据只有一条：**你真的会为了它去开一下 config.json 吗**。不会的键就别加。
-
-## 已定（本轮你拍板的）
-
-- 任务文本上限 120 字符，超了这次调用失败；表超过 20 条也整次失败。
-- 「正在做」不设条数上限，并行随便开。
-- 表头 `Todo 2/5 · 1 doing`，`doing` 为 0 时不显示后半段。
-- `/todos` 输出走底部灰字；`/todos import` 只吃 markdown checklist。
-- TUI 文案统一英文；配置读取单文件 `config.ts`；版本 `0.1.0` + MIT + setwhite。
-- 文档只留 `PLAN.md` + `CONFIG.md` 两份，重复内容不抄第二遍、只放指针；架构与任务表等 PLAN 批准后再写。
-- `glyphs` / `completedStyle` 保留可配，不从键表删。
-- fade 不用时钟：等模型下一次「回复里没有工具调用」时收起；`lifecycle.fadeSeconds` 随之删掉，键表 22 → 21。
-
-## 待你定
-
-- [ ] 开发期怎么处理与本机 rpiv-todo-lean 的 `todo` 撞名（你说留到开发时再定）

@@ -16,7 +16,7 @@ import { exportFileName, parseChecklist, renderList, renderWidget, toMarkdown, t
 /** widget key：`ctx.ui.setWidget("todo", …)`。 */
 const WIDGET_KEY = "todo";
 
-/** 命令名：`/todos`。与 rpiv-todo 装的同名命令撞车问题见 docs/TODO.md 的 T8 偏差。 */
+/** 命令名：`/todos`。与 rpiv-todo 装的同名命令撞车问题见 docs/SPEC.md 的「其他 → 已知偏差」。 */
 const COMMAND_NAME = "todos";
 
 /** 同名文件最多让位多少次（`name` → `name-2` → …）。 */
@@ -73,6 +73,9 @@ function writeExportFile(cwd: string, dir: string, pattern: string, text: string
 /** 模型侧 guidelines 里的工具名占位符：`tool-name: …` 注册时变成 `todo: …`。 */
 const TOOL_NAME_PLACEHOLDER = "tool-name";
 
+/** 「干完发空表能清」那条 guideline 的标记：只有 `onFinish: "model"` 档注册它。 */
+const CLEAR_HINT_MARK = "`tasks: []`";
+
 export default function piTodo(pi: ExtensionAPI): void {
 	const config = loadConfig();
 	const toolName = config.tools.todo.name;
@@ -88,7 +91,7 @@ export default function piTodo(pi: ExtensionAPI): void {
 	/** 组件工厂给的 TUI 句柄，用来在状态变化后重画；没有 UI 时一直是 undefined。 */
 	let tui: TUI | undefined;
 
-	/** 收起 / 展开：只切视图，不碰账（折叠键与 `lifecycle.onFinish: "fade"` 共用）。 */
+	/** 收起 / 展开：只切视图，不碰账（只有折叠键一个入口）。 */
 	let collapsed = false;
 
 	/** 主题里我们用到的两个方法（结构化类型，省得 import pi 内部的 Theme）。 */
@@ -151,8 +154,11 @@ export default function piTodo(pi: ExtensionAPI): void {
 		label: "Todo",
 		description: config.guidance.description,
 		promptSnippet: config.guidance.promptSnippet || undefined,
-		// 一处 guideline 里可能写多次占位符：全部替换，没写的原样留着
-		promptGuidelines: config.guidance.promptGuidelines.map((guideline) => guideline.replaceAll(TOOL_NAME_PLACEHOLDER, toolName)),
+		// keep 档要留成存档、clear 档整表完成后自己清 —— 两档告诉模型能清空只会拆台
+		promptGuidelines: config.guidance.promptGuidelines
+			.filter((guideline) => config.lifecycle.onFinish === "model" || !guideline.includes(CLEAR_HINT_MARK))
+			// 一处 guideline 里可能写多次占位符：全部替换，没写的原样留着
+			.map((guideline) => guideline.replaceAll(TOOL_NAME_PLACEHOLDER, toolName)),
 		// 三个字段全必填、无字段文案；additionalProperties: false 与 plan.ts 的未知键拒绝同一件事
 		parameters: Type.Object(
 			{
@@ -271,12 +277,11 @@ export default function piTodo(pi: ExtensionAPI): void {
 		});
 	}
 
-	if (config.lifecycle.onFinish === "fade") {
-		// fade：整表完成后再等模型这波收工（agent_settled = 没有待办的工具调用），把 widget 收起
-		pi.on("agent_settled", (_event, ctx) => {
+	if (config.lifecycle.onFinish === "clear") {
+		// clear：整表完成后再等模型这波收工（agent_settled = 没有待办的工具调用），写空快照把账清掉
+		pi.on("agent_settled", () => {
 			if (tasks.length === 0 || tasks.some((task) => task.status !== "completed")) return;
-			collapsed = true;
-			draw(ctx);
+			commit([]);
 		});
 	}
 

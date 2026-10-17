@@ -1,2 +1,21 @@
+# 依赖
 node_modules/
-prompt/
+
+# 构建与测试产物
+dist/
+coverage/
+*.tsbuildinfo
+
+# 日志与临时文件
+*.log
+tmp/
+
+# 编辑器与 OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 本地环境与密钥
+.env
+.env.*

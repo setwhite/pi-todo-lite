@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { DEFAULTS, loadConfig, resolveConfigPath } from "../config.ts";
+import { DEFAULTS, loadConfig, resolveConfigPath } from "../src/config.ts";
 
 const createdDirs: string[] = [];
 
@@ -88,7 +88,7 @@ describe("loadConfig", () => {
 		first.guidance.promptGuidelines.push("extra");
 		first.ui.widget.glyphs.pending = "?";
 
-		expect(DEFAULTS.guidance.promptGuidelines).toHaveLength(2);
+		expect(DEFAULTS.guidance.promptGuidelines).toHaveLength(3);
 		expect(loadConfig({ configPath: path, env: {} }).ui.widget.glyphs.pending).toBe("[ ]");
 	});
 
@@ -152,7 +152,7 @@ describe("loadConfig", () => {
 		const path = writeConfig(JSON.stringify({ lifecycle: { onFinish: "faded" } }));
 
 		expect(captureError(() => loadConfig({ configPath: path, env: {} }))).toBe(
-			`pi-todo config ${path}: lifecycle.onFinish: expected one of model | keep | fade, got "faded"`,
+			`pi-todo config ${path}: lifecycle.onFinish: expected one of model | keep | clear, got "faded"`,
 		);
 	});
 
