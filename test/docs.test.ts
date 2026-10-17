@@ -6,7 +6,8 @@ import { DEFAULTS } from "../src/config.ts";
  * `docs/CONFIG.md` 与 `config.ts` 的三处对账（T12）：
  * 键表 / `DEFAULTS` / 样例 JSON 谁都不能单飞。文档是唯一副本，这里只把螺丝拧紧。
  */
-const DOC = readFileSync(new URL("../docs/CONFIG.md", import.meta.url), "utf-8");
+// Windows 检出默认 core.autocrlf=true，文件到手是 CRLF —— 解析前先归一
+const DOC = readFileSync(new URL("../docs/CONFIG.md", import.meta.url), "utf-8").replaceAll("\r\n", "\n");
 
 /** 键表的 `| key | 默认 | …` 行：键 → 默认值单元格原文（去掉包着的 code span）。 */
 function documentedKeys(): Map<string, string> {
