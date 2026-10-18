@@ -1,6 +1,6 @@
 # TODO — pi-todo-lite
 
-> 状态：M1、M2 已验收（2026-10-17），M2.5（auto-clear）已验收（2026-10-18）；M3 进行中 —— T13 / T14 已验收（2026-10-18），T15 交付物已就绪、等首发布与 AC 验收（2026-10-18）；T16（biome）交付物已就绪，等 CI 绿。
+> 状态：M1、M2 已验收（2026-10-17），M2.5（auto-clear）已验收（2026-10-18）；M3 进行中 —— T13 / T14 已验收（2026-10-18），T16（biome）已验收（2026-10-18）；T15 已发 0.1.0，等 OIDC 发布 0.1.1 与 AC2 真机验收（2026-10-18）。
 > 任务按开发顺序排，每条单次会话可完成。验收标准（AC1–AC8）在 `docs/SPEC.md`，本文件不抄。
 > 做完就勾：证据是 `test/*.test.ts` 的用例名与真机日志，本文件不复述。
 
@@ -45,26 +45,25 @@
   - 前置：T13
 
 - [~] T15 发布
-  - 交付物：`.github/workflows/npm-publish.yml`（main 上 `package.json` 变化才发、版本已存在则跳过、OIDC 可信发布）。发布 job 用 Node 24（自带 npm ≥ 11.5.1，OIDC 的硬要求），发布前先跑 typecheck + test
+  - 交付物：`.github/workflows/npm-publish.yml`（main 上 `package.json` 变化才发、版本已存在则跳过、OIDC 可信发布）。发布 job 用 Node 24（自带 npm ≥ 11.5.1，OIDC 的硬要求），发布前先跑 `pnpm lint && pnpm typecheck && pnpm test`
+  - 已上线：0.1.0 —— 本地 `npm publish`（2026-10-18）。首版发不了 OIDC（npm/cli#8544：包得先在 npm 上存在，才能配 Trusted Publisher）；新包名会先落一个 `0.0.0-stage` 占位版，`npm publish` 当时返的是 `PUT 202`，约 8 分钟后 0.1.0 才进 registry
   - 验收：
-    - AC1 `workflow_dispatch` 能跑通一次（可先发 0.1.0）
+    - AC1 走 OIDC 发一版（0.1.1）：`package.json` 版本一变、push 到 main 就触发，不必 `workflow_dispatch`；判定标准是 registry 上该版本带 `dist.attestations`（本地发的 0.1.0 没有）
     - AC2 发布后能 `pi` 装上并加载，widget 正常
-  - 你侧动作（顺序要紧）：npm 不允许 OIDC 发首版 —— 包得先在 npm 上存在，才能在包设置里配 Trusted Publisher：
-    1. 本地 `npm publish` 发 0.1.0（现在是首个已发版本）
-    2. 包设置里配 Trusted Publisher：`setwhite` / `pi-todo-lite` / workflow 文件名 `npm-publish.yml`（只填文件名，带 `.yml`；这类配置首配后 2 天内要发成一次，否则作废）
-    3. 版本升到 0.1.1 走 `workflow_dispatch`，验证 OIDC 真发布 —— 这才是 AC1
-    4. 发成后把 `README.md` / `README.en.md` 里「暂不可用」那段换成 npm 安装，顺带关掉 T15
+  - 你侧动作：
+    1. 包设置里配 Trusted Publisher：`setwhite` / `pi-todo-lite` / workflow 文件名 `npm-publish.yml`（只填文件名，带 `.yml`；这类配置首配后 2 天内要发成一次，否则作废）
+    2. 配好说一声 —— 版本升 0.1.1 并 push，就是 AC1
   - 前置：T14
 
 ## 工程 · dev QA
 
-- [~] T16 biome 接入
+- [x] T16 biome 接入
   - 交付物：`biome.json`（Biome 默认行宽 80、tab 缩进，只扫 `src/**` 与 `test/**`）、`package.json` 的 `lint` / `lint:fix`、`ci.yml` 与 `npm-publish.yml` 都跑 `pnpm lint`；`plan.ts` 里 `noControlCharactersInRegex` 用行内 ignore 并写明 why。devDep 精确钉 `2.5.15` —— 格式化器的小版本也会改输出，钉死免得平白 churn
   - 验收：
     - AC1 `pnpm lint` 退出 0、零诊断（9 个源文件全部按 Biome 格式化）
     - AC2 `pnpm typecheck` 与 `pnpm test` 仍全绿（格式化不动语义）
     - AC3 `ci.yml` 的 check job 与 `npm-publish.yml` 的发布闸门都跑 `pnpm lint`
-  - 你侧动作：push 后看 CI 三个 job 绿 —— AC3 的远端部分
+  - 证据（2026-10-18）：CI run `5836a76` 三个 job 全绿（AC3 的远端部分）；配套加 `.gitattributes` 的 `eol=lf` —— windows runner 默认 `core.autocrlf=true`，不钉行尾就报 10 个格式化错
   - 前置：T14
 
 ## 备注

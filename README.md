@@ -6,14 +6,14 @@ pi 的 todo 扩展：模型维护一张有序的 Todo 表，输入框上方常�
 
 ## 安装
 
-从 GitHub 装（现在就能用，跟默认分支走）：
+从 GitHub 装（跟默认分支走）：
 
 ```bash
 pi install git:github.com/setwhite/pi-todo-lite   # 写进 ~/.pi/agent/settings.json
 pi -e git:github.com/setwhite/pi-todo-lite        # 只试一次，不落 settings
 ```
 
-从 npm 装 —— **暂不可用**，包还没发布（见 [`docs/TODO.md`](docs/TODO.md) 的 T15）：
+从 npm 装：
 
 ```bash
 pi install npm:pi-todo-lite

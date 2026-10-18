@@ -6,14 +6,14 @@ A todo extension for [Pi](https://pi.dev): the model keeps one ordered task tabl
 
 ## Install
 
-From GitHub (works today, tracks the default branch):
+From GitHub (tracks the default branch):
 
 ```bash
 pi install git:github.com/setwhite/pi-todo-lite   # writes to ~/.pi/agent/settings.json
 pi -e git:github.com/setwhite/pi-todo-lite        # try it once, nothing persisted
 ```
 
-From npm — **not available yet**, the package is unpublished (T15 in [`docs/TODO.md`](docs/TODO.md)):
+From npm:
 
 ```bash
 pi install npm:pi-todo-lite
