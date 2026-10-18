@@ -1,0 +1,47 @@
+name: npm publish
+
+# 发版：main 上 package.json 变了（版本号随之变）就发，也可以手动 dispatch 一次。
+# 走 OIDC 可信发布 —— 不用 NPM_TOKEN，但两处必须同时成立：
+#   1. 这里给 id-token: write；
+#   2. npm 包设置的 Trusted Publisher 里填的 workflow 文件名与本文件一致（npm-publish.yml）。
+on:
+  push:
+    branches: [main]
+    paths: ["package.json"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Node 24 自带 npm ≥ 11.5.1，这是 OIDC 的硬要求（Node 22 的 npm 10.9.9 不够）
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: 查 npm 上有没有这个版本
+        id: check
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if npm view "pi-todo-lite@$version" version >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::pi-todo-lite@$version 已在 npm 上，跳过发布"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::pi-todo-lite@$version 还没发布，准备发布"
+          fi
+      - if: steps.check.outputs.publish == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.check.outputs.publish == 'true'
+        run: pnpm typecheck && pnpm test
+      # OIDC 由 npm CLI 自己识别，provenance 也随之自动生成，不需要额外 flag
+      - if: steps.check.outputs.publish == 'true'
+        run: npm publish
