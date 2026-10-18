@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-/** 21 个键的类型，键表与取值说明见 docs/CONFIG.md。 */
+/** 21 个键的类型，键表与取值说明见 README 的配置节。 */
 export type Config = {
 	tools: { todo: { name: string } };
 	plan: {
@@ -43,7 +43,7 @@ export type LoadOptions = {
 };
 
 /**
- * 默认值。键表改一份就改这里：docs/CONFIG.md 是它的文档。
+ * 默认值。键表改一份就改这里：README 的配置示例是它的文档（docs.test.ts 对账）。
  * guidance 里的 `tool-name:` 是占位符，index.ts 注册时替成 tools.todo.name。
  */
 export const DEFAULTS: Config = {

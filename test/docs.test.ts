@@ -3,29 +3,50 @@ import { describe, expect, it } from "vitest";
 import { DEFAULTS } from "../src/config.ts";
 
 /**
- * `docs/CONFIG.md` 与 `config.ts` 的三处对账（T12）：
- * 键表 / `DEFAULTS` / 样例 JSON 谁都不能单飞。文档是唯一副本，这里只把螺丝拧紧。
+ * README 里那份「完整示例」与 `config.ts` 的对账（T12 的键表从 CONFIG.md 挪到了
+ * README）：示例就是键表，DEFAULTS 是默认值，谁都不能单飞。中文版是唯一来源，
+ * 英文版必须解析出同一份 JSON —— 两版漂移也在这里报。
  */
 // Windows 检出默认 core.autocrlf=true，文件到手是 CRLF —— 解析前先归一
-const DOC = readFileSync(
-	new URL("../docs/CONFIG.md", import.meta.url),
-	"utf-8",
-).replaceAll("\r\n", "\n");
+const read = (name: string): string =>
+	readFileSync(new URL(`../${name}`, import.meta.url), "utf-8").replaceAll(
+		"\r\n",
+		"\n",
+	);
 
-/** 键表的 `| key | 默认 | …` 行：键 → 默认值单元格原文（去掉包着的 code span）。 */
-function documentedKeys(): Map<string, string> {
-	const rows = new Map<string, string>();
-	for (const line of DOC.split("\n")) {
-		const match = /^\| `([^`]+)` \| ([^|]*) \|/.exec(line);
-		const key = match?.[1];
-		if (key === undefined) continue;
-		const cell = (match?.[2] ?? "").trim();
-		rows.set(key, /^`[\s\S]*`$/.test(cell) ? cell.slice(1, -1) : cell);
+const ZH = read("README.md");
+const EN = read("README.en.md");
+
+/** 去掉 `//` 行尾注释；字符串里的 `//` 不算（认识引号与转义）。*/
+function stripComments(source: string): string {
+	const out: string[] = [];
+	for (const line of source.split("\n")) {
+		let inString = false;
+		let cut = line.length;
+		for (let i = 0; i < line.length; i += 1) {
+			const char = line[i];
+			if (inString) {
+				if (char === "\\") i += 1;
+				else if (char === '"') inString = false;
+			} else if (char === '"') inString = true;
+			else if (char === "/" && line[i + 1] === "/") {
+				cut = i;
+				break;
+			}
+		}
+		out.push(line.slice(0, cut));
 	}
-	return rows;
+	return out.join("\n");
 }
 
-/** 所有叶子路径（标准摊平：数组与标量都是叶子）。键表可以把 `glyphs` 这种子对象写成一行。 */
+/** 文档里那个带注释的完整示例。*/
+function sample(doc: string, label: string): unknown {
+	const block = /```jsonc\n([\s\S]*?)```/.exec(doc)?.[1];
+	if (block === undefined) throw new Error(`${label} 里没找到 jsonc 代码块`);
+	return JSON.parse(stripComments(block));
+}
+
+/** 所有叶子路径（标准摊平：数组与标量都是叶子）。*/
 function leafPaths(value: unknown, prefix = ""): string[] {
 	return Object.entries(value as Record<string, unknown>).flatMap(
 		([key, item]) => {
@@ -37,7 +58,7 @@ function leafPaths(value: unknown, prefix = ""): string[] {
 	);
 }
 
-/** 按 `a.b.c` 取值；`found` 为 false 表示这个路径不存在。 */
+/** 按 `a.b.c` 取值；`found` 为 false 表示这个路径不存在。*/
 function atPath(
 	root: unknown,
 	path: string,
@@ -51,80 +72,23 @@ function atPath(
 	return { found: true, value: current };
 }
 
-/** `a.b.c` 自己 + 所有祖先路径（`a` / `a.b` / `a.b.c`）。 */
-function ancestors(path: string): string[] {
-	const parts = path.split(".");
-	return parts.map((_, index) => parts.slice(0, index + 1).join("."));
-}
+const ZH_SAMPLE = sample(ZH, "README.md");
+const EN_SAMPLE = sample(EN, "README.en.md");
 
-/** 表里对象写成 JS 字面量（键名不带引号）：补上引号再当 JSON 读。 */
-function asJson(cell: string): unknown {
-	return JSON.parse(
-		cell.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":'),
-	);
-}
+describe("README 的配置示例与 config.ts 对账", () => {
+	it("示例的键正好是 DEFAULTS 的键，值逐字一致（guidance 三格是占位符）", () => {
+		const leaves = leafPaths(DEFAULTS).sort();
+		expect(leafPaths(ZH_SAMPLE).sort()).toEqual(leaves);
 
-/** 文档末尾那份「写满的样例」JSON 代码块。 */
-function sampleJson(): unknown {
-	const match = /```json\n([\s\S]*?)```/.exec(DOC);
-	if (match?.[1] === undefined)
-		throw new Error("docs/CONFIG.md 里没找到 json 代码块");
-	return JSON.parse(match[1]);
-}
-
-const DOC_KEYS = documentedKeys();
-const LEAVES = leafPaths(DEFAULTS);
-const SAMPLE = sampleJson();
-
-describe("docs/CONFIG.md 与 config.ts 对账", () => {
-	it("键表正好 21 行，且每个叶子键都有登记（glyphs 这种子对象允许写成一行）", () => {
-		expect(DOC_KEYS.size).toBe(21);
-
-		// 每个叶子：自己或者它的某个祖先在表里
-		expect(
-			LEAVES.filter(
-				(path) => !ancestors(path).some((ancestor) => DOC_KEYS.has(ancestor)),
-			),
-		).toEqual([]);
-		// 反向：表里每一行都得管着至少一个叶子（没有「只写在文档里没实现」的键）
-		expect(
-			[...DOC_KEYS.keys()].filter(
-				(key) =>
-					!LEAVES.some((path) => path === key || path.startsWith(`${key}.`)),
-			),
-		).toEqual([]);
-	});
-
-	it("键表里的默认值与 DEFAULTS 逐字一致；剩下三格是散文，点名看着", () => {
-		const prose: string[] = [];
-
-		for (const [path, cell] of DOC_KEYS) {
-			let parsed: unknown;
-			try {
-				parsed = asJson(cell);
-			} catch {
-				prose.push(path);
-				continue;
-			}
-			expect(parsed, path).toEqual(atPath(DEFAULTS, path).value);
-		}
-
-		// 「false（默认放开并行）」「我们的成品（…）」这几格写不进 JSON，只能点名
-		expect(prose).toEqual([
-			"plan.requireSingleInProgress",
-			"guidance.description",
-			"guidance.promptGuidelines",
-		]);
-	});
-
-	it("样例 JSON 的每个键都在 DEFAULTS 里，值逐字一致（guidance 三格是占位符）", () => {
-		for (const path of leafPaths(SAMPLE)) {
-			expect(atPath(DEFAULTS, path).found, path).toBe(true);
+		for (const path of leaves) {
 			if (path.startsWith("guidance.")) continue;
-			expect(atPath(SAMPLE, path).value, path).toEqual(
+			expect(atPath(ZH_SAMPLE, path).value, path).toEqual(
 				atPath(DEFAULTS, path).value,
 			);
 		}
-		expect(leafPaths(SAMPLE)).toHaveLength(23);
+	});
+
+	it("英文 README 的示例与中文解析出同一个对象", () => {
+		expect(EN_SAMPLE).toEqual(ZH_SAMPLE);
 	});
 });

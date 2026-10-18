@@ -29,7 +29,7 @@
     - AC1 整表 `completed` 且 `agent_settled` 后，会话里多一条 `{tasks: []}` 快照、回放得到空表、widget 渲染成空（`docs/SPEC.md` 的 AC8）
     - AC2 空表或还有未完成项时不写账
     - AC3 `model` / `keep` 不监听 `agent_settled`，行为不变
-    - AC4 `docs/CONFIG.md` 的取值列与 `config.ts` 的枚举逐字一致，`docs.test.ts` 仍绿
+    - AC4 取值列与 `config.ts` 的枚举逐字一致，`docs.test.ts` 仍绿
 - [x] T18 clear 改在用户发消息时清，默认档换成 clear
   - 交付物：`config.ts` 的 `DEFAULTS.lifecycle.onFinish` 由 `model` 换成 `clear`；`index.ts` 的自动清空从 `agent_settled` 挪到 `input`（source 不筛：interactive / rpc / extension 一样），守卫不变（表非空且整表 `completed`）
   - 为什么：`agent_settled` 一到就清，是在用户眼皮底下把表抽走，他多半还没看完；挪到「用户发下一条消息」，看完是有保证的（`docs/DECISIONS.md#6`）
@@ -37,7 +37,7 @@
     - AC1 默认档（不写配置）就是 `clear`：整表完成后 `emit input` 多一条 `{tasks: []}` 快照、回放得到空表、widget 变空；`agent_settled` 纹丝不动
     - AC2 空表、或还有未完成项时，`input` 不写账
     - AC3 `model` / `keep` 不监听 `input`；`model` 仍注册「干完发空表能清」那条 guideline，默认档不注册（模型侧文案 141 → 80 字符）
-    - AC4 `docs/CONFIG.md` 的默认值与 `DEFAULTS` 逐字一致，`docs.test.ts` 仍绿
+    - AC4 默认值与 `DEFAULTS` 逐字一致，`docs.test.ts` 仍绿
   - 前置：T16
 
 ## M3 · 发布
@@ -60,7 +60,6 @@
   - 验收：
     - AC1 ✅ 版本一变、push 到 main 就触发；registry 上 0.1.1 的 `dist.attestations` 非空（`provenance`，SLSA v1）—— 本地发的 0.1.0 没有，这就是 OIDC 跑通的证据
     - AC2 ✅ `pi install npm:pi-todo-lite` 装上、widget 正常（你侧真机确认）
-  - 注意：`@ssk_dev/rpiv-todo-lean` 也注册 `todo` 工具，两个一起加载会报 `Tool "todo" conflicts` —— 装本包前先 `pi remove` 它，或者把 `tools.todo.name` 改掉
   - 前置：T14
 
 ## 工程 · dev QA
@@ -76,4 +75,4 @@
 
 ## 备注
 
-- 中途要加键、加命令、加机制 —— 先改 `docs/SPEC.md` 的「不做的」与 `docs/CONFIG.md` 的键表，再回来动这里。
+- 中途要加键、加命令、加机制 —— 先改 `docs/SPEC.md` 的「不做的」与 README 的配置示例，再回来动这里。

@@ -1,7 +1,7 @@
 # SPEC · pi-todo-lite
 
 > 状态：M1 / M2 已验收（2026-10-17），M2.5（auto-clear）已验收（2026-10-18），M3 进行中（T13 / T14 已验收，T15 待做）—— 进度见 `docs/TODO.md`。
-> 这是唯一的契约：改协议、加命令、动验收标准都先改这里。为什么这么定见 `docs/DECISIONS.md`，键表见 `docs/CONFIG.md`。
+> 这是唯一的契约：改协议、加命令、动验收标准都先改这里。为什么这么定见 `docs/DECISIONS.md`，键表见 README 的配置节。
 > 只写代码里读不出的东西 —— 签名、导出、逐条行为一律看源码。
 
 ## 问题
@@ -58,7 +58,7 @@
 
 ## 配置与命令
 
-- 21 个键的默认值、区间、代价只在 `docs/CONFIG.md`（唯一键表，`test/docs.test.ts` 拿它跟 `DEFAULTS` 对账）。路径 `<agent dir>/pi-todo/config.json`，扩展**只读不写**；文件不存在 → 全默认值；JSON 坏 / 未知键 / 类型枚举错 → 抛错（消息带绝对路径与逐条 `字段路径: 原因`）；数值越界 clamp、非整数按类型错拒。
+- 21 个键的默认值只在 README 那份带注释的完整示例里（它就是键表，`test/docs.test.ts` 拿它跟 `DEFAULTS` 对账，中英文两版必须解析出同一份）。路径 `<agent dir>/pi-todo/config.json`，扩展**只读不写**；文件不存在 → 全默认值；JSON 坏 / 未知键 / 类型枚举错 → 抛错（消息带绝对路径与逐条 `字段路径: 原因`）；数值越界 clamp、非整数按类型错拒。
 - `/todos`（全列清单）/ `clear` / `export`（markdown checklist，默认 `todo-{timestamp}.md`，同名让位不覆盖）/ `import <file>`（只吃 markdown checklist；表非空时拒绝；先宽松解析再严格校验）。命令名固定 `todos`，不做成配置键。
 - 两面错误方向相反：工具面把 `Error` 抛给 pi 回给模型；命令面一律 catch 成 `notify(error)` —— 抛出去宿主只记 `extension_error`，用户在对话区看不到原因。
 - UI 调用一律容错：没有 `ctx.ui`（RPC / print）或 `setWidget` / `notify` 不可用时静默跳过，状态照旧落账。
@@ -74,7 +74,7 @@
 | `src/view.ts` | 显示与文本：widget 行、`/todos` 文本、markdown 导出与解析。只从 `plan.ts` 取类型 |
 | `src/config.ts` | 读 `config.json`、默认值、校验、clamp。只碰 `node:fs` / `node:path` / `node:os` |
 
-放置规则：语义与校验 → `plan.ts`；显示与文本 → `view.ts`；配置键 → `config.ts`（类型、默认值、校验、`CONFIG.md` 四处一起改）；只有注册或调宿主才碰 `index.ts`。`src/` 下不建 `utils.ts` / `types.ts` / `constants.ts`，类型跟着用它的模块走；`tsconfig.json` 的 `include` 只列 `src` 与 `test`，散在根目录的 `.ts` 不参与编译。
+放置规则：语义与校验 → `plan.ts`；显示与文本 → `view.ts`；配置键 → `config.ts`（类型、默认值、校验、README 的示例四处一起改）；只有注册或调宿主才碰 `index.ts`。`src/` 下不建 `utils.ts` / `types.ts` / `constants.ts`，类型跟着用它的模块走；`tsconfig.json` 的 `include` 只列 `src` 与 `test`，散在根目录的 `.ts` 不参与编译。
 
 **不变量**：「`content` 单行、无控制字符与不可见字符、trim 过」由 `plan.ts` 在数据入口保证 —— 所以下游渲染不必再清终端控制字符、也不必防一条变多行。
 
@@ -104,7 +104,7 @@
 - 自定义 `renderCall` / `renderResult`、`prepareArguments` 容错层、日志与调试开关。
 - 子代理看板；`key` / `baseVersion`；i18n。
 - 压缩后忘表的兜底：表只活在模型上下文里，被 compaction 截掉后模型不知道表内容、widget 却还在显示 —— 先不做，等真观察到症状再议。
-- 明确不做的配置键（整扩展 `enabled`、`timeoutMs` / `apiKeys` / `proxy`、主题与字体、语言开关、`nudge.*`）列在 `docs/CONFIG.md`。
+- 明确不做的配置键：整个扩展的 `enabled`、`timeoutMs` / `apiKeys` / `proxy`、主题与字体、语言开关、`nudge.*`。
 
 这份清单是契约，要加得先改这份 spec。
 
