@@ -1,6 +1,6 @@
 # TODO — pi-todo-lite
 
-> 状态：M1、M2 已验收（2026-10-17），M2.5（auto-clear）已验收（2026-10-18）；M3 进行中 —— T13 / T14 已验收（2026-10-18），T17（biome）已验收（2026-10-18）；T15 已发 0.1.0，等 OIDC 发布 0.1.1 与 AC2 真机验收；T18（clear 挪到用户发消息 + 默认档）已验收（2026-10-18）。
+> 状态：M1、M2 已验收（2026-10-17），M2.5（auto-clear）已验收（2026-10-18）；M3 进行中 —— T13 / T14 已验收（2026-10-18），T17（biome）已验收（2026-10-18）；T15 已验收：0.1.1 经 OIDC 发布、带 provenance（2026-10-18）；T18（clear 挪到用户发消息 + 默认档）已验收（2026-10-18）。
 > 任务按开发顺序排，每条单次会话可完成。验收标准（AC1–AC8）在 `docs/SPEC.md`，本文件不抄。
 > 做完就勾：证据是 `test/*.test.ts` 的用例名与真机日志，本文件不复述。
 
@@ -54,15 +54,13 @@
   - 验收：`pnpm typecheck && pnpm test` 在三个 job 上全绿（`docs/SPEC.md` 的 AC7）
   - 前置：T13
 
-- [~] T15 发布
+- [x] T15 发布
   - 交付物：`.github/workflows/npm-publish.yml`（main 上 `package.json` 变化才发、版本已存在则跳过、OIDC 可信发布）。发布 job 用 Node 24（自带 npm ≥ 11.5.1，OIDC 的硬要求），发布前先跑 `pnpm lint && pnpm typecheck && pnpm test`
-  - 已上线：0.1.0 —— 本地 `npm publish`（2026-10-18）。首版发不了 OIDC（npm/cli#8544：包得先在 npm 上存在，才能配 Trusted Publisher）；新包名会先落一个 `0.0.0-stage` 占位版，`npm publish` 当时返的是 `PUT 202`，约 8 分钟后 0.1.0 才进 registry
+  - 已上线：0.1.0 本地 `npm publish`（2026-10-18）；0.1.1 走 workflow 的 OIDC（2026-10-18，run `39140629898`）—— 日志里是 `Signed provenance statement with source and build information from GitHub Actions`，provenance 已进 transparency log
   - 验收：
-    - AC1 走 OIDC 发一版（0.1.1）：`package.json` 版本一变、push 到 main 就触发，不必 `workflow_dispatch`；判定标准是 registry 上该版本带 `dist.attestations`（本地发的 0.1.0 没有）
-    - AC2 发布后能 `pi` 装上并加载，widget 正常
-  - 你侧动作：
-    1. 包设置里配 Trusted Publisher：`setwhite` / `pi-todo-lite` / workflow 文件名 `npm-publish.yml`（只填文件名，带 `.yml`；这类配置首配后 2 天内要发成一次，否则作废）
-    2. 配好说一声 —— 版本升 0.1.1 并 push，就是 AC1
+    - AC1 ✅ 版本一变、push 到 main 就触发；registry 上 0.1.1 的 `dist.attestations` 非空（`provenance`，SLSA v1）—— 本地发的 0.1.0 没有，这就是 OIDC 跑通的证据
+    - AC2 ✅ `pi install npm:pi-todo-lite` 装上、widget 正常（你侧真机确认）
+  - 注意：`@ssk_dev/rpiv-todo-lean` 也注册 `todo` 工具，两个一起加载会报 `Tool "todo" conflicts` —— 装本包前先 `pi remove` 它，或者把 `tools.todo.name` 改掉
   - 前置：T14
 
 ## 工程 · dev QA
