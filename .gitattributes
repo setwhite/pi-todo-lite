@@ -1,0 +1,3 @@
+# 行尾不交给平台决定：windows-latest runner 默认 core.autocrlf=true，会把检出改成 CRLF，
+# biome（行尾 LF）与读文件的测试都会因此挂掉。仓库与工作区一律 LF。
+* text=auto eol=lf
