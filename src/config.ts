@@ -5,7 +5,11 @@ import { join, resolve } from "node:path";
 /** 21 个键的类型，键表与取值说明见 docs/CONFIG.md。 */
 export type Config = {
 	tools: { todo: { name: string } };
-	plan: { maxTasks: number; maxSubjectChars: number; requireSingleInProgress: boolean };
+	plan: {
+		maxTasks: number;
+		maxSubjectChars: number;
+		requireSingleInProgress: boolean;
+	};
 	ui: {
 		widget: {
 			enabled: boolean;
@@ -24,7 +28,11 @@ export type Config = {
 		export: { enabled: boolean; dir: string; fileNamePattern: string };
 		import: { enabled: boolean };
 	};
-	guidance: { description: string; promptSnippet: string; promptGuidelines: string[] };
+	guidance: {
+		description: string;
+		promptSnippet: string;
+		promptGuidelines: string[];
+	};
 };
 
 export type LoadOptions = {
@@ -80,7 +88,9 @@ const TOOL_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
 export function resolveConfigPath(options: LoadOptions = {}): string {
 	if (options.configPath !== undefined) return resolve(options.configPath);
 	const env = options.env ?? process.env;
-	const agentDir = env.PI_CODING_AGENT_DIR ? resolve(env.PI_CODING_AGENT_DIR) : join(homedir(), ".pi", "agent");
+	const agentDir = env.PI_CODING_AGENT_DIR
+		? resolve(env.PI_CODING_AGENT_DIR)
+		: join(homedir(), ".pi", "agent");
 	return join(agentDir, "pi-todo", "config.json");
 }
 
@@ -97,12 +107,15 @@ export function loadConfig(options: LoadOptions = {}): Config {
 	try {
 		parsed = JSON.parse(source);
 	} catch (error) {
-		throw new Error(`pi-todo config ${path}: invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
+		throw new Error(
+			`pi-todo config ${path}: invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+		);
 	}
 
 	const errors: string[] = [];
 	const config = buildConfig(parsed, errors);
-	if (errors.length > 0) throw new Error(`pi-todo config ${path}: ${errors.join("\n")}`);
+	if (errors.length > 0)
+		throw new Error(`pi-todo config ${path}: ${errors.join("\n")}`);
 	return config;
 }
 
@@ -122,7 +135,12 @@ function buildConfig(input: unknown, errors: string[]): Config {
 		errors.push(`expected object, got ${describe(input)}`);
 		return structuredClone(DEFAULTS);
 	}
-	checkKeys(input, "", ["tools", "plan", "ui", "lifecycle", "commands", "guidance"], errors);
+	checkKeys(
+		input,
+		"",
+		["tools", "plan", "ui", "lifecycle", "commands", "guidance"],
+		errors,
+	);
 
 	const tools = readGroup(input.tools, "tools", errors);
 	checkKeys(tools, "tools", ["todo"], errors);
@@ -130,14 +148,37 @@ function buildConfig(input: unknown, errors: string[]): Config {
 	checkKeys(todo, "tools.todo", ["name"], errors);
 
 	const plan = readGroup(input.plan, "plan", errors);
-	checkKeys(plan, "plan", ["maxTasks", "maxSubjectChars", "requireSingleInProgress"], errors);
+	checkKeys(
+		plan,
+		"plan",
+		["maxTasks", "maxSubjectChars", "requireSingleInProgress"],
+		errors,
+	);
 
 	const ui = readGroup(input.ui, "ui", errors);
 	checkKeys(ui, "ui", ["widget", "shortcut"], errors);
 	const widget = readGroup(ui.widget, "ui.widget", errors);
-	checkKeys(widget, "ui.widget", ["enabled", "maxLines", "placement", "showCompleted", "header", "glyphs", "completedStyle"], errors);
+	checkKeys(
+		widget,
+		"ui.widget",
+		[
+			"enabled",
+			"maxLines",
+			"placement",
+			"showCompleted",
+			"header",
+			"glyphs",
+			"completedStyle",
+		],
+		errors,
+	);
 	const glyphs = readGroup(widget.glyphs, "ui.widget.glyphs", errors);
-	checkKeys(glyphs, "ui.widget.glyphs", ["pending", "inProgress", "completed"], errors);
+	checkKeys(
+		glyphs,
+		"ui.widget.glyphs",
+		["pending", "inProgress", "completed"],
+		errors,
+	);
 	const shortcut = readGroup(ui.shortcut, "ui.shortcut", errors);
 	checkKeys(shortcut, "ui.shortcut", ["toggle"], errors);
 
@@ -149,50 +190,219 @@ function buildConfig(input: unknown, errors: string[]): Config {
 	const todosCommand = readGroup(commands.todos, "commands.todos", errors);
 	checkKeys(todosCommand, "commands.todos", ["enabled"], errors);
 	const exportCommand = readGroup(commands.export, "commands.export", errors);
-	checkKeys(exportCommand, "commands.export", ["enabled", "dir", "fileNamePattern"], errors);
+	checkKeys(
+		exportCommand,
+		"commands.export",
+		["enabled", "dir", "fileNamePattern"],
+		errors,
+	);
 	const importCommand = readGroup(commands.import, "commands.import", errors);
 	checkKeys(importCommand, "commands.import", ["enabled"], errors);
 
 	const guidance = readGroup(input.guidance, "guidance", errors);
-	checkKeys(guidance, "guidance", ["description", "promptSnippet", "promptGuidelines"], errors);
+	checkKeys(
+		guidance,
+		"guidance",
+		["description", "promptSnippet", "promptGuidelines"],
+		errors,
+	);
 
 	return {
-		tools: { todo: { name: readName(todo, "name", "tools.todo.name", errors, DEFAULTS.tools.todo.name) } },
+		tools: {
+			todo: {
+				name: readName(
+					todo,
+					"name",
+					"tools.todo.name",
+					errors,
+					DEFAULTS.tools.todo.name,
+				),
+			},
+		},
 		plan: {
-			maxTasks: readNumber(plan, "maxTasks", "plan.maxTasks", errors, DEFAULTS.plan.maxTasks, 1, 200),
-			maxSubjectChars: readNumber(plan, "maxSubjectChars", "plan.maxSubjectChars", errors, DEFAULTS.plan.maxSubjectChars, 20, 400),
-			requireSingleInProgress: readBoolean(plan, "requireSingleInProgress", "plan.requireSingleInProgress", errors, DEFAULTS.plan.requireSingleInProgress),
+			maxTasks: readNumber(
+				plan,
+				"maxTasks",
+				"plan.maxTasks",
+				errors,
+				DEFAULTS.plan.maxTasks,
+				1,
+				200,
+			),
+			maxSubjectChars: readNumber(
+				plan,
+				"maxSubjectChars",
+				"plan.maxSubjectChars",
+				errors,
+				DEFAULTS.plan.maxSubjectChars,
+				20,
+				400,
+			),
+			requireSingleInProgress: readBoolean(
+				plan,
+				"requireSingleInProgress",
+				"plan.requireSingleInProgress",
+				errors,
+				DEFAULTS.plan.requireSingleInProgress,
+			),
 		},
 		ui: {
 			widget: {
-				enabled: readBoolean(widget, "enabled", "ui.widget.enabled", errors, DEFAULTS.ui.widget.enabled),
-				maxLines: readNumber(widget, "maxLines", "ui.widget.maxLines", errors, DEFAULTS.ui.widget.maxLines, 3, 10),
-				placement: readEnum(widget, "placement", "ui.widget.placement", errors, DEFAULTS.ui.widget.placement, PLACEMENTS),
-				showCompleted: readBoolean(widget, "showCompleted", "ui.widget.showCompleted", errors, DEFAULTS.ui.widget.showCompleted),
-				header: readString(widget, "header", "ui.widget.header", errors, DEFAULTS.ui.widget.header),
+				enabled: readBoolean(
+					widget,
+					"enabled",
+					"ui.widget.enabled",
+					errors,
+					DEFAULTS.ui.widget.enabled,
+				),
+				maxLines: readNumber(
+					widget,
+					"maxLines",
+					"ui.widget.maxLines",
+					errors,
+					DEFAULTS.ui.widget.maxLines,
+					3,
+					10,
+				),
+				placement: readEnum(
+					widget,
+					"placement",
+					"ui.widget.placement",
+					errors,
+					DEFAULTS.ui.widget.placement,
+					PLACEMENTS,
+				),
+				showCompleted: readBoolean(
+					widget,
+					"showCompleted",
+					"ui.widget.showCompleted",
+					errors,
+					DEFAULTS.ui.widget.showCompleted,
+				),
+				header: readString(
+					widget,
+					"header",
+					"ui.widget.header",
+					errors,
+					DEFAULTS.ui.widget.header,
+				),
 				glyphs: {
-					pending: readString(glyphs, "pending", "ui.widget.glyphs.pending", errors, DEFAULTS.ui.widget.glyphs.pending),
-					inProgress: readString(glyphs, "inProgress", "ui.widget.glyphs.inProgress", errors, DEFAULTS.ui.widget.glyphs.inProgress),
-					completed: readString(glyphs, "completed", "ui.widget.glyphs.completed", errors, DEFAULTS.ui.widget.glyphs.completed),
+					pending: readString(
+						glyphs,
+						"pending",
+						"ui.widget.glyphs.pending",
+						errors,
+						DEFAULTS.ui.widget.glyphs.pending,
+					),
+					inProgress: readString(
+						glyphs,
+						"inProgress",
+						"ui.widget.glyphs.inProgress",
+						errors,
+						DEFAULTS.ui.widget.glyphs.inProgress,
+					),
+					completed: readString(
+						glyphs,
+						"completed",
+						"ui.widget.glyphs.completed",
+						errors,
+						DEFAULTS.ui.widget.glyphs.completed,
+					),
 				},
-				completedStyle: readEnum(widget, "completedStyle", "ui.widget.completedStyle", errors, DEFAULTS.ui.widget.completedStyle, COMPLETED_STYLES),
+				completedStyle: readEnum(
+					widget,
+					"completedStyle",
+					"ui.widget.completedStyle",
+					errors,
+					DEFAULTS.ui.widget.completedStyle,
+					COMPLETED_STYLES,
+				),
 			},
-			shortcut: { toggle: readString(shortcut, "toggle", "ui.shortcut.toggle", errors, DEFAULTS.ui.shortcut.toggle) },
+			shortcut: {
+				toggle: readString(
+					shortcut,
+					"toggle",
+					"ui.shortcut.toggle",
+					errors,
+					DEFAULTS.ui.shortcut.toggle,
+				),
+			},
 		},
-		lifecycle: { onFinish: readEnum(lifecycle, "onFinish", "lifecycle.onFinish", errors, DEFAULTS.lifecycle.onFinish, ON_FINISH) },
+		lifecycle: {
+			onFinish: readEnum(
+				lifecycle,
+				"onFinish",
+				"lifecycle.onFinish",
+				errors,
+				DEFAULTS.lifecycle.onFinish,
+				ON_FINISH,
+			),
+		},
 		commands: {
-			todos: { enabled: readBoolean(todosCommand, "enabled", "commands.todos.enabled", errors, DEFAULTS.commands.todos.enabled) },
-			export: {
-				enabled: readBoolean(exportCommand, "enabled", "commands.export.enabled", errors, DEFAULTS.commands.export.enabled),
-				dir: readString(exportCommand, "dir", "commands.export.dir", errors, DEFAULTS.commands.export.dir),
-				fileNamePattern: readString(exportCommand, "fileNamePattern", "commands.export.fileNamePattern", errors, DEFAULTS.commands.export.fileNamePattern),
+			todos: {
+				enabled: readBoolean(
+					todosCommand,
+					"enabled",
+					"commands.todos.enabled",
+					errors,
+					DEFAULTS.commands.todos.enabled,
+				),
 			},
-			import: { enabled: readBoolean(importCommand, "enabled", "commands.import.enabled", errors, DEFAULTS.commands.import.enabled) },
+			export: {
+				enabled: readBoolean(
+					exportCommand,
+					"enabled",
+					"commands.export.enabled",
+					errors,
+					DEFAULTS.commands.export.enabled,
+				),
+				dir: readString(
+					exportCommand,
+					"dir",
+					"commands.export.dir",
+					errors,
+					DEFAULTS.commands.export.dir,
+				),
+				fileNamePattern: readString(
+					exportCommand,
+					"fileNamePattern",
+					"commands.export.fileNamePattern",
+					errors,
+					DEFAULTS.commands.export.fileNamePattern,
+				),
+			},
+			import: {
+				enabled: readBoolean(
+					importCommand,
+					"enabled",
+					"commands.import.enabled",
+					errors,
+					DEFAULTS.commands.import.enabled,
+				),
+			},
 		},
 		guidance: {
-			description: readString(guidance, "description", "guidance.description", errors, DEFAULTS.guidance.description),
-			promptSnippet: readString(guidance, "promptSnippet", "guidance.promptSnippet", errors, DEFAULTS.guidance.promptSnippet),
-			promptGuidelines: readStringArray(guidance, "promptGuidelines", "guidance.promptGuidelines", errors, DEFAULTS.guidance.promptGuidelines),
+			description: readString(
+				guidance,
+				"description",
+				"guidance.description",
+				errors,
+				DEFAULTS.guidance.description,
+			),
+			promptSnippet: readString(
+				guidance,
+				"promptSnippet",
+				"guidance.promptSnippet",
+				errors,
+				DEFAULTS.guidance.promptSnippet,
+			),
+			promptGuidelines: readStringArray(
+				guidance,
+				"promptGuidelines",
+				"guidance.promptGuidelines",
+				errors,
+				DEFAULTS.guidance.promptGuidelines,
+			),
 		},
 	};
 }
@@ -205,23 +415,45 @@ function readGroup(value: unknown, path: string, errors: string[]): Raw {
 	return {};
 }
 
-function checkKeys(raw: Raw, path: string, known: readonly string[], errors: string[]): void {
+function checkKeys(
+	raw: Raw,
+	path: string,
+	known: readonly string[],
+	errors: string[],
+): void {
 	for (const key of Object.keys(raw)) {
-		if (!known.includes(key)) errors.push(`${path === "" ? "" : `${path}.`}${key}: unknown key`);
+		if (!known.includes(key))
+			errors.push(`${path === "" ? "" : `${path}.`}${key}: unknown key`);
 	}
 }
 
-function readNumber(raw: Raw, key: string, path: string, errors: string[], fallback: number, min: number, max: number): number {
+function readNumber(
+	raw: Raw,
+	key: string,
+	path: string,
+	errors: string[],
+	fallback: number,
+	min: number,
+	max: number,
+): number {
 	const value = raw[key];
 	if (value === undefined) return fallback;
 	if (typeof value !== "number" || !Number.isInteger(value)) {
-		errors.push(`${path}: ${typeof value === "number" ? `expected integer, got ${value}` : `expected number, got ${describe(value)}`}`);
+		errors.push(
+			`${path}: ${typeof value === "number" ? `expected integer, got ${value}` : `expected number, got ${describe(value)}`}`,
+		);
 		return fallback;
 	}
 	return Math.min(max, Math.max(min, value));
 }
 
-function readBoolean(raw: Raw, key: string, path: string, errors: string[], fallback: boolean): boolean {
+function readBoolean(
+	raw: Raw,
+	key: string,
+	path: string,
+	errors: string[],
+	fallback: boolean,
+): boolean {
 	const value = raw[key];
 	if (value === undefined) return fallback;
 	if (typeof value !== "boolean") {
@@ -231,7 +463,13 @@ function readBoolean(raw: Raw, key: string, path: string, errors: string[], fall
 	return value;
 }
 
-function readString(raw: Raw, key: string, path: string, errors: string[], fallback: string): string {
+function readString(
+	raw: Raw,
+	key: string,
+	path: string,
+	errors: string[],
+	fallback: string,
+): string {
 	const value = raw[key];
 	if (value === undefined) return fallback;
 	if (typeof value !== "string") {
@@ -241,27 +479,50 @@ function readString(raw: Raw, key: string, path: string, errors: string[], fallb
 	return value;
 }
 
-function readName(raw: Raw, key: string, path: string, errors: string[], fallback: string): string {
+function readName(
+	raw: Raw,
+	key: string,
+	path: string,
+	errors: string[],
+	fallback: string,
+): string {
 	const value = raw[key];
 	if (value === undefined) return fallback;
 	if (typeof value !== "string" || !TOOL_NAME.test(value)) {
-		errors.push(`${path}: expected a name starting with a letter and containing only letters, digits or underscores, got ${describe(value)}`);
+		errors.push(
+			`${path}: expected a name starting with a letter and containing only letters, digits or underscores, got ${describe(value)}`,
+		);
 		return fallback;
 	}
 	return value;
 }
 
-function readEnum<T extends string>(raw: Raw, key: string, path: string, errors: string[], fallback: T, values: readonly T[]): T {
+function readEnum<T extends string>(
+	raw: Raw,
+	key: string,
+	path: string,
+	errors: string[],
+	fallback: T,
+	values: readonly T[],
+): T {
 	const value = raw[key];
 	if (value === undefined) return fallback;
 	if (typeof value !== "string" || !values.includes(value as T)) {
-		errors.push(`${path}: expected one of ${values.join(" | ")}, got ${describe(value)}`);
+		errors.push(
+			`${path}: expected one of ${values.join(" | ")}, got ${describe(value)}`,
+		);
 		return fallback;
 	}
 	return value as T;
 }
 
-function readStringArray(raw: Raw, key: string, path: string, errors: string[], fallback: string[]): string[] {
+function readStringArray(
+	raw: Raw,
+	key: string,
+	path: string,
+	errors: string[],
+	fallback: string[],
+): string[] {
 	const value = raw[key];
 	if (value === undefined) return [...fallback];
 	if (!Array.isArray(value)) {
@@ -271,7 +532,8 @@ function readStringArray(raw: Raw, key: string, path: string, errors: string[], 
 	const items: string[] = [];
 	for (const [index, item] of value.entries()) {
 		if (typeof item === "string") items.push(item);
-		else errors.push(`${path}[${index}]: expected string, got ${describe(item)}`);
+		else
+			errors.push(`${path}[${index}]: expected string, got ${describe(item)}`);
 	}
 	return items;
 }
@@ -294,5 +556,7 @@ const ECHO_LIMIT = 32;
 
 function echo(value: string): string {
 	const chars = Array.from(value);
-	return chars.length <= ECHO_LIMIT ? JSON.stringify(value) : `${JSON.stringify(chars.slice(0, ECHO_LIMIT).join(""))}…`;
+	return chars.length <= ECHO_LIMIT
+		? JSON.stringify(value)
+		: `${JSON.stringify(chars.slice(0, ECHO_LIMIT).join(""))}…`;
 }

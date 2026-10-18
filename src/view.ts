@@ -33,7 +33,9 @@ function truncate(line: string, width: number): string {
 /** 省掉 doing 段时，占位符前面那段：去掉尾部空白，尾巴上的 `·` 也一起去掉。 */
 function trimHead(head: string): string {
 	const trimmed = head.replace(/\s+$/, "");
-	return trimmed.endsWith("·") ? trimmed.slice(0, -1).replace(/\s+$/, "") : trimmed;
+	return trimmed.endsWith("·")
+		? trimmed.slice(0, -1).replace(/\s+$/, "")
+		: trimmed;
 }
 
 /** 省掉 doing 段时，占位符后面那段：去掉紧跟在其后的一个词（默认模板里就是 `doing`）。 */
@@ -49,7 +51,10 @@ function trimTail(tail: string): string {
  * 于是默认模板在干完时就是 `Todo 5/5`。模板里写了几个 `{doing}` 就按这套处理几个
  * （每删一个都会重扫，删不出新占位符，所以一定收敛）。
  */
-function renderHeader(template: string, counts: { done: number; total: number; doing: number }): string {
+function renderHeader(
+	template: string,
+	counts: { done: number; total: number; doing: number },
+): string {
 	let text = template;
 	if (counts.doing === 0) {
 		for (let at = text.indexOf(DOING); at !== -1; at = text.indexOf(DOING)) {
@@ -58,11 +63,18 @@ function renderHeader(template: string, counts: { done: number; total: number; d
 			text = tail === "" ? head : `${head} ${tail}`;
 		}
 	}
-	return text.replaceAll("{done}", String(counts.done)).replaceAll("{total}", String(counts.total)).replaceAll(DOING, String(counts.doing));
+	return text
+		.replaceAll("{done}", String(counts.done))
+		.replaceAll("{total}", String(counts.total))
+		.replaceAll(DOING, String(counts.doing));
 }
 
 /** 表头要的三个计数，永远按整张表算。 */
-function countTasks(tasks: readonly Task[]): { done: number; total: number; doing: number } {
+function countTasks(tasks: readonly Task[]): {
+	done: number;
+	total: number;
+	doing: number;
+} {
 	const counts = { done: 0, total: tasks.length, doing: 0 };
 	for (const task of tasks) {
 		if (task.status === "completed") counts.done += 1;
@@ -73,7 +85,12 @@ function countTasks(tasks: readonly Task[]): { done: number; total: number; doin
 
 /** 条目行：字形 + 空格 + content（content 由 plan.ts 保证单行、无控制字符）。 */
 function renderRow(task: Task, glyphs: WidgetConfig["glyphs"]): string {
-	const glyph = task.status === "completed" ? glyphs.completed : task.status === "in_progress" ? glyphs.inProgress : glyphs.pending;
+	const glyph =
+		task.status === "completed"
+			? glyphs.completed
+			: task.status === "in_progress"
+				? glyphs.inProgress
+				: glyphs.pending;
 	return `${glyph} ${task.content}`;
 }
 
@@ -81,7 +98,10 @@ function renderRow(task: Task, glyphs: WidgetConfig["glyphs"]): string {
  * 行预算内的取舍：装得下就全给；装不下先整条丢 completed，再砍非完成项的尾巴，
  * 末尾一行 `+N more`（N 含被丢掉的 completed）—— 汇总行自己占一格，所以条目最多 `budget - 1` 行。
  */
-function layout(tasks: readonly Task[], budget: number): { shown: readonly Task[]; hidden: number } {
+function layout(
+	tasks: readonly Task[],
+	budget: number,
+): { shown: readonly Task[]; hidden: number } {
 	if (tasks.length <= budget) return { shown: tasks, hidden: 0 };
 	const unfinished = tasks.filter((task) => task.status !== "completed");
 	const shown = unfinished.slice(0, Math.max(budget - 1, 0));
@@ -92,22 +112,34 @@ function layout(tasks: readonly Task[], budget: number): { shown: readonly Task[
  * widget 的内容：一行表头 + 若干条目行（溢出时再补一行 `+N more`），每行按 `width` 截断。
  * 空表返回 undefined，交给宿主把 widget 收掉；计数永远按整张表算，与显示与否无关。
  */
-export function renderWidget(tasks: readonly Task[], cfg: WidgetConfig, width: number): string[] | undefined {
+export function renderWidget(
+	tasks: readonly Task[],
+	cfg: WidgetConfig,
+	width: number,
+): string[] | undefined {
 	if (tasks.length === 0) return undefined;
 
 	const counts = countTasks(tasks);
 
-	const visible = cfg.showCompleted ? tasks : tasks.filter((task) => task.status !== "completed");
+	const visible = cfg.showCompleted
+		? tasks
+		: tasks.filter((task) => task.status !== "completed");
 	const budget = cfg.maxLines - 1;
 	const { shown, hidden } = layout(visible, budget);
-	const lines = [renderHeader(cfg.header, counts), ...shown.map((task) => renderRow(task, cfg.glyphs))];
+	const lines = [
+		renderHeader(cfg.header, counts),
+		...shown.map((task) => renderRow(task, cfg.glyphs)),
+	];
 	// `maxLines` 是硬上限：预算连表头都装不下时，汇总行也一并丢掉
 	if (hidden > 0 && budget > 0) lines.push(`+${hidden} more`);
 
 	return lines.map((line, index) => {
 		const text = truncate(line, width);
 		// 表头在 index 0，之后依次是 shown 里的条目（汇总行拿不到 task，自然不套样式）
-		return shown[index - 1]?.status === "completed" && cfg.styleCompleted !== undefined ? cfg.styleCompleted(text) : text;
+		return shown[index - 1]?.status === "completed" &&
+			cfg.styleCompleted !== undefined
+			? cfg.styleCompleted(text)
+			: text;
 	});
 }
 
@@ -116,7 +148,10 @@ export function renderWidget(tasks: readonly Task[], cfg: WidgetConfig, width: n
  * 不受 `maxLines` 与 `showCompleted` 约束（清单的作用就是全看一遍）。
  */
 export function renderList(tasks: readonly Task[], cfg: WidgetConfig): string {
-	return [renderHeader(cfg.header, countTasks(tasks)), ...tasks.map((task) => renderRow(task, cfg.glyphs))].join("\n");
+	return [
+		renderHeader(cfg.header, countTasks(tasks)),
+		...tasks.map((task) => renderRow(task, cfg.glyphs)),
+	].join("\n");
 }
 
 /**
@@ -124,7 +159,12 @@ export function renderList(tasks: readonly Task[], cfg: WidgetConfig): string {
  * `in_progress` 归到未勾选（markdown checklist 没有第三种状态）。
  */
 export function toMarkdown(tasks: readonly Task[]): string {
-	return tasks.map((task) => `- [${task.status === "completed" ? "x" : " "}] ${task.content}`).join("\n");
+	return tasks
+		.map(
+			(task) =>
+				`- [${task.status === "completed" ? "x" : " "}] ${task.content}`,
+		)
+		.join("\n");
 }
 
 /** checklist 的一行：`- [ ] 内容` / `- [x] 内容`，行首允许空白。 */
@@ -142,7 +182,10 @@ export function parseChecklist(text: string): Task[] {
 		const content = (match[2] ?? "").trim();
 		if (content === "") continue;
 		const mark = match[1];
-		tasks.push({ content, status: mark === "x" || mark === "X" ? "completed" : "pending" });
+		tasks.push({
+			content,
+			status: mark === "x" || mark === "X" ? "completed" : "pending",
+		});
 	}
 	return tasks;
 }

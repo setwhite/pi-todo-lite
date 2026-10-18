@@ -1,7 +1,20 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ExtensionAPI, ExtensionContext, ExtensionToolContext, ToolDefinition } from "@earendil-works/pi-coding-agent";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+	ExtensionToolContext,
+	ToolDefinition,
+} from "@earendil-works/pi-coding-agent";
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import piTodo from "../src/index.ts";
@@ -21,7 +34,11 @@ function useConfig(config?: unknown): string {
 	const dir = makeTempDir("index");
 	if (config !== undefined) {
 		mkdirSync(join(dir, "pi-todo"), { recursive: true });
-		writeFileSync(join(dir, "pi-todo", "config.json"), JSON.stringify(config), "utf-8");
+		writeFileSync(
+			join(dir, "pi-todo", "config.json"),
+			JSON.stringify(config),
+			"utf-8",
+		);
 	}
 	vi.stubEnv("PI_CODING_AGENT_DIR", dir);
 	return dir;
@@ -30,16 +47,28 @@ function useConfig(config?: unknown): string {
 afterEach(() => {
 	vi.unstubAllEnvs();
 	vi.restoreAllMocks();
-	for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+	for (const dir of dirs.splice(0))
+		rmSync(dir, { recursive: true, force: true });
 });
 
 type Handler = (event: unknown, ctx: ExtensionContext) => unknown;
 type StateEntry = { type: string; customType: string; data?: unknown };
-type WidgetCall = { key: string; content: unknown; options?: { placement?: string }; component?: Component };
-type CommandOptions = { description?: string; handler: (args: string, ctx: ExtensionContext) => Promise<void> };
+type WidgetCall = {
+	key: string;
+	content: unknown;
+	options?: { placement?: string };
+	component?: Component;
+};
+type CommandOptions = {
+	description?: string;
+	handler: (args: string, ctx: ExtensionContext) => Promise<void>;
+};
 type CommandCall = { name: string; options: CommandOptions };
 type Note = { message: string; type?: string };
-type ShortcutOptions = { description?: string; handler: (ctx: ExtensionContext) => unknown };
+type ShortcutOptions = {
+	description?: string;
+	handler: (ctx: ExtensionContext) => unknown;
+};
 type ShortcutCall = { key: string; options: ShortcutOptions };
 
 interface Harness {
@@ -63,7 +92,14 @@ interface Harness {
 }
 
 /** fake api + fake ctx：只实现 index.ts 用到的那几样（registerTool / on / appendEntry / ui.setWidget / sessionManager.getBranch）。 */
-function harness(options: { hasUI?: boolean; noSetWidget?: boolean; cwd?: string; theme?: unknown } = {}): Harness {
+function harness(
+	options: {
+		hasUI?: boolean;
+		noSetWidget?: boolean;
+		cwd?: string;
+		theme?: unknown;
+	} = {},
+): Harness {
 	const tools: ToolDefinition[] = [];
 	const entries: StateEntry[] = [];
 	const widgets: WidgetCall[] = [];
@@ -73,18 +109,28 @@ function harness(options: { hasUI?: boolean; noSetWidget?: boolean; cwd?: string
 	const handlers = new Map<string, Handler[]>();
 	let renders = 0;
 
-	const tui = { requestRender: () => void (renders += 1) } as unknown as TUI;
+	const tui = {
+		requestRender: () => {
+			renders += 1;
+		},
+	} as unknown as TUI;
 	// 默认主题是恒等的：不关心样式的用例拿到的还是原文本
-	const theme = options.theme ?? { strikethrough: (text: string) => text, style: (text: string) => text };
+	const theme = options.theme ?? {
+		strikethrough: (text: string) => text,
+		style: (text: string) => text,
+	};
 	const api = {
 		registerTool: (tool: ToolDefinition) => void tools.push(tool),
 		on: (event: string, handler: Handler) => {
 			handlers.set(event, [...(handlers.get(event) ?? []), handler]);
 			return () => {};
 		},
-		appendEntry: (customType: string, data?: unknown) => void entries.push({ type: "custom", customType, data }),
-		registerCommand: (name: string, commandOptions: CommandOptions) => void commands.push({ name, options: commandOptions }),
-		registerShortcut: (key: string, shortcutOptions: ShortcutOptions) => void shortcuts.push({ key, options: shortcutOptions }),
+		appendEntry: (customType: string, data?: unknown) =>
+			void entries.push({ type: "custom", customType, data }),
+		registerCommand: (name: string, commandOptions: CommandOptions) =>
+			void commands.push({ name, options: commandOptions }),
+		registerShortcut: (key: string, shortcutOptions: ShortcutOptions) =>
+			void shortcuts.push({ key, options: shortcutOptions }),
 	} as unknown as ExtensionAPI;
 	const ctx = {
 		hasUI: options.hasUI ?? true,
@@ -92,17 +138,26 @@ function harness(options: { hasUI?: boolean; noSetWidget?: boolean; cwd?: string
 		ui: options.noSetWidget
 			? {}
 			: {
-					setWidget: (key: string, content: unknown, widgetOptions?: { placement?: string }) => {
+					setWidget: (
+						key: string,
+						content: unknown,
+						widgetOptions?: { placement?: string },
+					) => {
 						const call: WidgetCall = { key, content, options: widgetOptions };
-						if (typeof content === "function") call.component = (content as (tui: TUI, theme: unknown) => Component)(tui, theme);
+						if (typeof content === "function")
+							call.component = (
+								content as (tui: TUI, theme: unknown) => Component
+							)(tui, theme);
 						widgets.push(call);
 					},
-					notify: (message: string, type?: string) => void notes.push({ message, type }),
+					notify: (message: string, type?: string) =>
+						void notes.push({ message, type }),
 				},
 		sessionManager: { getBranch: () => entries },
 	} as unknown as ExtensionContext;
 
-	const run = (args: string): Promise<void> => (commands[0] as CommandCall).options.handler(args, ctx as never);
+	const run = (args: string): Promise<void> =>
+		(commands[0] as CommandCall).options.handler(args, ctx as never);
 
 	return {
 		api,
@@ -117,20 +172,31 @@ function harness(options: { hasUI?: boolean; noSetWidget?: boolean; cwd?: string
 		renders: () => renders,
 		lines: (width) => widgets.at(-1)?.component?.render(width) ?? [],
 		run,
-		fireShortcut: async () => void (await shortcuts[0]?.options.handler(ctx as never)),
+		fireShortcut: async () =>
+			void (await shortcuts[0]?.options.handler(ctx as never)),
 	};
 }
 
 /** 触发一个会话事件；index.ts 注册了 session_start / session_compact / session_tree。 */
 function emit(harness: Harness, event: string): void {
-	for (const handler of harness.handlers.get(event) ?? []) handler({ type: event }, harness.ctx);
+	for (const handler of harness.handlers.get(event) ?? [])
+		handler({ type: event }, harness.ctx);
 }
 
 /** 调一次工具；返回 index.ts 的返回值（校验失败就 reject）。 */
-async function callTool(harness: Harness, params: unknown): Promise<{ content: Array<{ type: string; text: string }> }> {
+async function callTool(
+	harness: Harness,
+	params: unknown,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
 	const tool = harness.tools[0] as ToolDefinition;
 	const ctx = harness.ctx as ExtensionToolContext;
-	return (await tool.execute("call-1", params as never, undefined, undefined, ctx)) as { content: Array<{ type: string; text: string }> };
+	return (await tool.execute(
+		"call-1",
+		params as never,
+		undefined,
+		undefined,
+		ctx,
+	)) as { content: Array<{ type: string; text: string }> };
 }
 
 /** 子命令认不出、参数给错时的用法提示（index.ts 的 USAGE）。 */
@@ -220,7 +286,9 @@ describe("index：注册（AC1）", () => {
 	});
 
 	it("一条 guideline 里写了多次 tool-name 时每处都替换", () => {
-		useConfig({ guidance: { promptGuidelines: ["tool-name: a tool-name note"] } });
+		useConfig({
+			guidance: { promptGuidelines: ["tool-name: a tool-name note"] },
+		});
 		const harnessed = harness();
 
 		piTodo(harnessed.api);
@@ -241,7 +309,12 @@ describe("index：注册（AC1）", () => {
 	});
 
 	it("description 与 guidelines 跟着配置走", () => {
-		useConfig({ guidance: { description: "自定义描述", promptGuidelines: ["tool-name: 自定义一条"] } });
+		useConfig({
+			guidance: {
+				description: "自定义描述",
+				promptGuidelines: ["tool-name: 自定义一条"],
+			},
+		});
 		const harnessed = harness();
 
 		piTodo(harnessed.api);
@@ -257,9 +330,17 @@ describe("index：一次调用（AC2）", () => {
 		const harnessed = harness();
 		piTodo(harnessed.api);
 
-		const result = await callTool(harnessed, { tasks: [{ content: "a", status: "pending" }] });
+		const result = await callTool(harnessed, {
+			tasks: [{ content: "a", status: "pending" }],
+		});
 
-		expect(harnessed.entries).toEqual([{ type: "custom", customType: "pi-todo-state", data: { tasks: [{ content: "a", status: "pending" }] } }]);
+		expect(harnessed.entries).toEqual([
+			{
+				type: "custom",
+				customType: "pi-todo-state",
+				data: { tasks: [{ content: "a", status: "pending" }] },
+			},
+		]);
 		expect(result.content[0]?.text).toBe("Todo 0/1\n[ ] a");
 	});
 
@@ -268,18 +349,27 @@ describe("index：一次调用（AC2）", () => {
 		const harnessed = harness({ cwd: makeTempDir("cwd") });
 		piTodo(harnessed.api);
 
-		await expect(callTool(harnessed, { tasks: [{ content: "a", status: "in_progress" }, { content: "b", status: "in_progress" }] })).rejects.toThrow(
-			"todo: 2 tasks are in_progress, max is 1",
-		);
+		await expect(
+			callTool(harnessed, {
+				tasks: [
+					{ content: "a", status: "in_progress" },
+					{ content: "b", status: "in_progress" },
+				],
+			}),
+		).rejects.toThrow("todo: 2 tasks are in_progress, max is 1");
 		expect(harnessed.entries).toEqual([]);
 		expect(harnessed.widgets).toEqual([]);
 	});
 
 	it("ui.widget.completedStyle 决定已完成行怎么包：strikethrough / dim / plain", async () => {
-		const tasks = [{ content: "a", status: "pending" }, { content: "b", status: "completed" }];
+		const tasks = [
+			{ content: "a", status: "pending" },
+			{ content: "b", status: "completed" },
+		];
 		const theme = {
 			strikethrough: (text: string) => `~~${text}~~`,
-			style: (text: string, options: { dim?: boolean }) => (options.dim ? `·${text}·` : text),
+			style: (text: string, options: { dim?: boolean }) =>
+				options.dim ? `·${text}·` : text,
 		};
 
 		for (const [completedStyle, expected] of [
@@ -304,7 +394,9 @@ describe("index：一次调用（AC2）", () => {
 		piTodo(harnessed.api);
 		emit(harnessed, "session_start");
 
-		await expect(callTool(harnessed, { tasks: [{ content: " ", status: "pending" }] })).rejects.toThrow("todo: task 1: content is empty");
+		await expect(
+			callTool(harnessed, { tasks: [{ content: " ", status: "pending" }] }),
+		).rejects.toThrow("todo: task 1: content is empty");
 
 		expect(harnessed.entries).toEqual([]);
 		expect(harnessed.renders()).toBe(0);
@@ -320,7 +412,11 @@ describe("index：一次调用（AC2）", () => {
 
 		await callTool(harnessed, { tasks: [] });
 
-		expect(harnessed.entries.at(-1)).toEqual({ type: "custom", customType: "pi-todo-state", data: { tasks: [] } });
+		expect(harnessed.entries.at(-1)).toEqual({
+			type: "custom",
+			customType: "pi-todo-state",
+			data: { tasks: [] },
+		});
 		expect(harnessed.lines(80)).toEqual([]);
 	});
 
@@ -355,12 +451,19 @@ describe("index：会话事件与 widget（AC3）", () => {
 		const harnessed = harness();
 		piTodo(harnessed.api);
 		emit(harnessed, "session_start");
-		await callTool(harnessed, { tasks: [{ content: "a", status: "pending" }, { content: "b", status: "completed" }] });
+		await callTool(harnessed, {
+			tasks: [
+				{ content: "a", status: "pending" },
+				{ content: "b", status: "completed" },
+			],
+		});
 
 		emit(harnessed, "session_tree");
 
 		expect(harnessed.lines(80)).toEqual(["Todo 1/2", "[ ] a", "[x] b"]);
-		expect(harnessed.widgets.at(-1)?.options).toEqual({ placement: "belowEditor" });
+		expect(harnessed.widgets.at(-1)?.options).toEqual({
+			placement: "belowEditor",
+		});
 	});
 
 	it("widget.enabled 为 false 时不注册 widget，工具照常注册", () => {
@@ -392,7 +495,10 @@ describe("index：会话事件与 widget（AC3）", () => {
 
 /** 20 条 pending，用来对「/todos 全列」与「widget 截断」两条口径。 */
 function makeTasks(count: number): Array<{ content: string; status: string }> {
-	return Array.from({ length: count }, (_, index) => ({ content: `task ${index + 1}`, status: "pending" }));
+	return Array.from({ length: count }, (_, index) => ({
+		content: `task ${index + 1}`,
+		status: "pending",
+	}));
 }
 
 describe("index：lifecycle.onFinish（T12）", () => {
@@ -406,17 +512,28 @@ describe("index：lifecycle.onFinish（T12）", () => {
 		emit(harnessed, "agent_settled");
 		expect(harnessed.entries).toEqual([]);
 
-		await callTool(harnessed, { tasks: [{ content: "a", status: "completed" }, { content: "b", status: "pending" }] });
+		await callTool(harnessed, {
+			tasks: [
+				{ content: "a", status: "completed" },
+				{ content: "b", status: "pending" },
+			],
+		});
 		emit(harnessed, "agent_settled");
 		expect(harnessed.entries).toHaveLength(1);
 		expect(harnessed.lines(80)).toEqual(["Todo 1/2", "[x] a", "[ ] b"]);
 
-		await callTool(harnessed, { tasks: [{ content: "a", status: "completed" }] });
+		await callTool(harnessed, {
+			tasks: [{ content: "a", status: "completed" }],
+		});
 		emit(harnessed, "agent_settled");
 
 		// 两次工具调用 + 自动清空那一条
 		expect(harnessed.entries).toHaveLength(3);
-		expect(harnessed.entries.at(-1)).toEqual({ type: "custom", customType: "pi-todo-state", data: { tasks: [] } });
+		expect(harnessed.entries.at(-1)).toEqual({
+			type: "custom",
+			customType: "pi-todo-state",
+			data: { tasks: [] },
+		});
 		expect(harnessed.lines(80)).toEqual([]);
 
 		// 空快照就是最后一条有效快照：切分支 / compaction 之后表不会复活
@@ -430,7 +547,9 @@ describe("index：lifecycle.onFinish（T12）", () => {
 
 	it("model / keep（默认 model）：压根不监听 agent_settled", async () => {
 		for (const onFinish of [undefined, "keep"] as const) {
-			useConfig(onFinish === undefined ? undefined : { lifecycle: { onFinish } });
+			useConfig(
+				onFinish === undefined ? undefined : { lifecycle: { onFinish } },
+			);
 			const harnessed = harness({ cwd: makeTempDir("cwd") });
 			piTodo(harnessed.api);
 
@@ -444,17 +563,29 @@ describe("index：折叠键（T11）", () => {
 		useConfig();
 		const harnessed = harness({ cwd: makeTempDir("cwd") });
 		piTodo(harnessed.api);
-		await callTool(harnessed, { tasks: [{ content: "a", status: "pending" }, { content: "b", status: "completed" }] });
+		await callTool(harnessed, {
+			tasks: [
+				{ content: "a", status: "pending" },
+				{ content: "b", status: "completed" },
+			],
+		});
 
 		expect(harnessed.shortcuts.map((call) => call.key)).toEqual(["alt+t"]);
-		expect(harnessed.shortcuts[0]?.options.description).toBe("Toggle the todo widget");
+		expect(harnessed.shortcuts[0]?.options.description).toBe(
+			"Toggle the todo widget",
+		);
 
 		await harnessed.fireShortcut();
 
 		expect(harnessed.widgets.at(-1)?.content).toBeUndefined();
 		expect(harnessed.lines(80)).toEqual([]);
 		expect(harnessed.entries).toHaveLength(1);
-		expect(harnessed.entries[0]?.data).toEqual({ tasks: [{ content: "a", status: "pending" }, { content: "b", status: "completed" }] });
+		expect(harnessed.entries[0]?.data).toEqual({
+			tasks: [
+				{ content: "a", status: "pending" },
+				{ content: "b", status: "completed" },
+			],
+		});
 
 		await harnessed.fireShortcut();
 
@@ -492,8 +623,12 @@ describe("index：/todos 命令（T8）", () => {
 
 		piTodo(harnessed.api);
 
-		expect(harnessed.commands.map((command) => command.name)).toEqual(["todos"]);
-		expect(harnessed.commands[0]?.options.description).toBe("Show or edit the todo list");
+		expect(harnessed.commands.map((command) => command.name)).toEqual([
+			"todos",
+		]);
+		expect(harnessed.commands[0]?.options.description).toBe(
+			"Show or edit the todo list",
+		);
 	});
 
 	it("commands.todos.enabled 为 false 时不注册命令，工具与 widget 照常", () => {
@@ -536,7 +671,11 @@ describe("index：/todos 命令（T8）", () => {
 
 		await harnessed.run("clear");
 
-		expect(harnessed.entries.at(-1)).toEqual({ type: "custom", customType: "pi-todo-state", data: { tasks: [] } });
+		expect(harnessed.entries.at(-1)).toEqual({
+			type: "custom",
+			customType: "pi-todo-state",
+			data: { tasks: [] },
+		});
 		expect(harnessed.lines(80)).toEqual([]);
 		expect(harnessed.notes).toEqual([{ message: "Cleared", type: "info" }]);
 	});
@@ -549,7 +688,12 @@ describe("index：/todos 命令（T8）", () => {
 
 		await harnessed.run("nope");
 
-		expect(harnessed.notes).toEqual([{ message: "Usage: /todos [clear | export | import <file>]", type: "warning" }]);
+		expect(harnessed.notes).toEqual([
+			{
+				message: "Usage: /todos [clear | export | import <file>]",
+				type: "warning",
+			},
+		]);
 		expect(harnessed.entries).toHaveLength(1);
 	});
 
@@ -561,7 +705,9 @@ describe("index：/todos 命令（T8）", () => {
 		await expect(harnessed.run("")).resolves.toBeUndefined();
 		await expect(harnessed.run("clear")).resolves.toBeUndefined();
 
-		expect(harnessed.entries).toEqual([{ type: "custom", customType: "pi-todo-state", data: { tasks: [] } }]);
+		expect(harnessed.entries).toEqual([
+			{ type: "custom", customType: "pi-todo-state", data: { tasks: [] } },
+		]);
 	});
 });
 
@@ -578,7 +724,12 @@ describe("index：/todos export（T9）", () => {
 		const cwd = makeTempDir("cwd");
 		const harnessed = harness({ cwd });
 		piTodo(harnessed.api);
-		await callTool(harnessed, { tasks: [{ content: "a", status: "pending" }, { content: "b", status: "completed" }] });
+		await callTool(harnessed, {
+			tasks: [
+				{ content: "a", status: "pending" },
+				{ content: "b", status: "completed" },
+			],
+		});
 
 		await harnessed.run("export");
 
@@ -587,7 +738,9 @@ describe("index：/todos export（T9）", () => {
 		const [name, text] = files[0] as [string, string];
 		expect(name).toMatch(/^todo-\d{8}-\d{4}\.md$/);
 		expect(text).toBe("- [ ] a\n- [x] b");
-		expect(harnessed.notes).toEqual([{ message: `Exported 2 tasks to ${join(cwd, name)}`, type: "info" }]);
+		expect(harnessed.notes).toEqual([
+			{ message: `Exported 2 tasks to ${join(cwd, name)}`, type: "info" },
+		]);
 	});
 
 	it("同名不覆盖：占住的名字让位（-2），旧文件原样留着", async () => {
@@ -608,7 +761,11 @@ describe("index：/todos export（T9）", () => {
 	});
 
 	it("commands.export.dir 与 fileNamePattern 跟着配置走，目录不存在就建", async () => {
-		useConfig({ commands: { export: { dir: join("out", "todo"), fileNamePattern: "list.md" } } });
+		useConfig({
+			commands: {
+				export: { dir: join("out", "todo"), fileNamePattern: "list.md" },
+			},
+		});
 		const cwd = makeTempDir("cwd");
 		const harnessed = harness({ cwd });
 		piTodo(harnessed.api);
@@ -616,8 +773,12 @@ describe("index：/todos export（T9）", () => {
 
 		await harnessed.run("export");
 
-		expect(readFileSync(join(cwd, "out", "todo", "list.md"), "utf-8")).toBe("- [ ] a");
-		expect(harnessed.notes[0]?.message).toBe(`Exported 1 task to ${join(cwd, "out", "todo", "list.md")}`);
+		expect(readFileSync(join(cwd, "out", "todo", "list.md"), "utf-8")).toBe(
+			"- [ ] a",
+		);
+		expect(harnessed.notes[0]?.message).toBe(
+			`Exported 1 task to ${join(cwd, "out", "todo", "list.md")}`,
+		);
 	});
 
 	it("IO 失败只 notify error，不抛给宿主：目录位置已经是文件（EEXIST）", async () => {
@@ -635,7 +796,11 @@ describe("index：/todos export（T9）", () => {
 	});
 
 	it("fileNamePattern 为空或带路径分隔符：error 提示，一个文件都不写（也不建目录）", async () => {
-		for (const pattern of ["", "../escaped-{timestamp}.md", "sub/x-{timestamp}.md"]) {
+		for (const pattern of [
+			"",
+			"../escaped-{timestamp}.md",
+			"sub/x-{timestamp}.md",
+		]) {
 			useConfig({ commands: { export: { fileNamePattern: pattern } } });
 			const cwd = makeTempDir("cwd");
 			const harnessed = harness({ cwd });
@@ -643,10 +808,19 @@ describe("index：/todos export（T9）", () => {
 
 			await harnessed.run("export");
 
-			expect(harnessed.notes).toEqual([{ message: `commands.export.fileNamePattern must be a file name, got "${pattern}"`, type: "error" }]);
+			expect(harnessed.notes).toEqual([
+				{
+					message: `commands.export.fileNamePattern must be a file name, got "${pattern}"`,
+					type: "error",
+				},
+			]);
 			expect(readdirSync(cwd)).toEqual([]);
 			// ../ 逃出去的文件、模板里写的子目录，都不该出现
-			expect(readdirSync(join(cwd, "..")).filter((name) => name.startsWith("escaped-"))).toEqual([]);
+			expect(
+				readdirSync(join(cwd, "..")).filter((name) =>
+					name.startsWith("escaped-"),
+				),
+			).toEqual([]);
 			expect(existsSync(join(cwd, "sub"))).toBe(false);
 		}
 	});
@@ -656,12 +830,17 @@ describe("index：/todos export（T9）", () => {
 		const cwd = makeTempDir("cwd");
 		const harnessed = harness({ cwd });
 		piTodo(harnessed.api);
-		await callTool(harnessed, { tasks: [{ content: "kept", status: "pending" }] });
+		await callTool(harnessed, {
+			tasks: [{ content: "kept", status: "pending" }],
+		});
 
 		await harnessed.run("clear now please");
 		await harnessed.run("export extra");
 
-		expect(harnessed.notes).toEqual([{ message: USAGE, type: "warning" }, { message: USAGE, type: "warning" }]);
+		expect(harnessed.notes).toEqual([
+			{ message: USAGE, type: "warning" },
+			{ message: USAGE, type: "warning" },
+		]);
 		expect(harnessed.entries).toHaveLength(1);
 		expect(readdirSync(cwd)).toEqual([]);
 	});
@@ -674,7 +853,12 @@ describe("index：/todos export（T9）", () => {
 
 		await harnessed.run("export");
 
-		expect(harnessed.notes).toEqual([{ message: "export is disabled (commands.export.enabled = false)", type: "warning" }]);
+		expect(harnessed.notes).toEqual([
+			{
+				message: "export is disabled (commands.export.enabled = false)",
+				type: "warning",
+			},
+		]);
 		expect(readdirSync(cwd)).toEqual([]);
 	});
 });
@@ -686,7 +870,12 @@ describe("index：/todos import（T10）", () => {
 		const harnessed = harness({ cwd });
 		piTodo(harnessed.api);
 		emit(harnessed, "session_start");
-		await callTool(harnessed, { tasks: [{ content: "a", status: "pending" }, { content: "b", status: "completed" }] });
+		await callTool(harnessed, {
+			tasks: [
+				{ content: "a", status: "pending" },
+				{ content: "b", status: "completed" },
+			],
+		});
 		await harnessed.run("export");
 		await harnessed.run("clear");
 		const name = readdirSync(cwd)[0] as string;
@@ -697,9 +886,17 @@ describe("index：/todos import（T10）", () => {
 		expect(harnessed.entries.at(-1)).toEqual({
 			type: "custom",
 			customType: "pi-todo-state",
-			data: { tasks: [{ content: "a", status: "pending" }, { content: "b", status: "completed" }] },
+			data: {
+				tasks: [
+					{ content: "a", status: "pending" },
+					{ content: "b", status: "completed" },
+				],
+			},
 		});
-		expect(harnessed.notes.at(-1)).toEqual({ message: `Imported 2 tasks from ${join(cwd, name)}`, type: "info" });
+		expect(harnessed.notes.at(-1)).toEqual({
+			message: `Imported 2 tasks from ${join(cwd, name)}`,
+			type: "info",
+		});
 		expect(harnessed.lines(80)).toEqual(["Todo 1/2", "[ ] a", "[x] b"]);
 	});
 
@@ -709,20 +906,39 @@ describe("index：/todos import（T10）", () => {
 		writeFileSync(join(cwd, "in.md"), "- [ ] x\n", "utf-8");
 		const harnessed = harness({ cwd });
 		piTodo(harnessed.api);
-		await callTool(harnessed, { tasks: [{ content: "kept", status: "pending" }] });
+		await callTool(harnessed, {
+			tasks: [{ content: "kept", status: "pending" }],
+		});
 
 		await harnessed.run("import in.md");
 
-		expect(harnessed.notes).toEqual([{ message: "Table is not empty. Run /todos clear first.", type: "warning" }]);
+		expect(harnessed.notes).toEqual([
+			{
+				message: "Table is not empty. Run /todos clear first.",
+				type: "warning",
+			},
+		]);
 		expect(harnessed.entries).toHaveLength(1);
-		expect(harnessed.entries[0]?.data).toEqual({ tasks: [{ content: "kept", status: "pending" }] });
+		expect(harnessed.entries[0]?.data).toEqual({
+			tasks: [{ content: "kept", status: "pending" }],
+		});
 	});
 
 	it("不认识的行忽略；超上限（21 条）时报 plan.ts 的消息且不落账", async () => {
 		useConfig();
 		const cwd = makeTempDir("cwd");
-		writeFileSync(join(cwd, "mixed.md"), `# 标题\n随便一句话\n- [ ] a\n- [x] b\n`, "utf-8");
-		writeFileSync(join(cwd, "too-many.md"), Array.from({ length: 21 }, (_, index) => `- [ ] task ${index + 1}`).join("\n"), "utf-8");
+		writeFileSync(
+			join(cwd, "mixed.md"),
+			`# 标题\n随便一句话\n- [ ] a\n- [x] b\n`,
+			"utf-8",
+		);
+		writeFileSync(
+			join(cwd, "too-many.md"),
+			Array.from({ length: 21 }, (_, index) => `- [ ] task ${index + 1}`).join(
+				"\n",
+			),
+			"utf-8",
+		);
 		const harnessed = harness({ cwd });
 		piTodo(harnessed.api);
 
@@ -731,9 +947,15 @@ describe("index：/todos import（T10）", () => {
 		await harnessed.run("import too-many.md");
 
 		expect(harnessed.entries.at(-2)?.data).toEqual({
-			tasks: [{ content: "a", status: "pending" }, { content: "b", status: "completed" }],
+			tasks: [
+				{ content: "a", status: "pending" },
+				{ content: "b", status: "completed" },
+			],
 		});
-		expect(harnessed.notes.at(-1)).toEqual({ message: "todo: tasks has 21 items, max is 20", type: "error" });
+		expect(harnessed.notes.at(-1)).toEqual({
+			message: "todo: tasks has 21 items, max is 20",
+			type: "error",
+		});
 		expect(harnessed.entries.at(-1)?.data).toEqual({ tasks: [] });
 	});
 
@@ -746,7 +968,9 @@ describe("index：/todos import（T10）", () => {
 		await harnessed.run("import nope.md");
 
 		expect(harnessed.notes[0]?.type).toBe("error");
-		expect(harnessed.notes[0]?.message).toContain(`Cannot read ${join(cwd, "nope.md")}`);
+		expect(harnessed.notes[0]?.message).toContain(
+			`Cannot read ${join(cwd, "nope.md")}`,
+		);
 		expect(harnessed.entries).toEqual([]);
 	});
 
@@ -759,13 +983,21 @@ describe("index：/todos import（T10）", () => {
 
 		await harnessed.run("import a  b.md");
 
-		expect(harnessed.notes.at(-1)).toEqual({ message: `Imported 1 task from ${join(cwd, "a  b.md")}`, type: "info" });
-		expect(harnessed.entries.at(-1)?.data).toEqual({ tasks: [{ content: "双空格", status: "pending" }] });
+		expect(harnessed.notes.at(-1)).toEqual({
+			message: `Imported 1 task from ${join(cwd, "a  b.md")}`,
+			type: "info",
+		});
+		expect(harnessed.entries.at(-1)?.data).toEqual({
+			tasks: [{ content: "双空格", status: "pending" }],
+		});
 
 		await harnessed.run("clear");
 		await harnessed.run('import "a  b.md"');
 
-		expect(harnessed.notes.at(-1)).toEqual({ message: `Imported 1 task from ${join(cwd, "a  b.md")}`, type: "info" });
+		expect(harnessed.notes.at(-1)).toEqual({
+			message: `Imported 1 task from ${join(cwd, "a  b.md")}`,
+			type: "info",
+		});
 	});
 
 	it("缺文件名 / import 关掉：warning，不落账", async () => {
@@ -776,7 +1008,12 @@ describe("index：/todos import（T10）", () => {
 		piTodo(off.api);
 
 		await off.run("import in.md");
-		expect(off.notes).toEqual([{ message: "import is disabled (commands.import.enabled = false)", type: "warning" }]);
+		expect(off.notes).toEqual([
+			{
+				message: "import is disabled (commands.import.enabled = false)",
+				type: "warning",
+			},
+		]);
 
 		useConfig();
 		const on = harness({ cwd });

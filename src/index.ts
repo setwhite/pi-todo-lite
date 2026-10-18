@@ -6,12 +6,28 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import type {
+	ExtensionAPI,
+	ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import type { Component, KeyId, TUI } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { loadConfig, type Config } from "./config.ts";
-import { STATE_CUSTOM_TYPE, formatTasks, replayTasks, validateTasks, type Task } from "./plan.ts";
-import { exportFileName, parseChecklist, renderList, renderWidget, toMarkdown, type WidgetConfig } from "./view.ts";
+import { type Config, loadConfig } from "./config.ts";
+import {
+	formatTasks,
+	replayTasks,
+	STATE_CUSTOM_TYPE,
+	type Task,
+	validateTasks,
+} from "./plan.ts";
+import {
+	exportFileName,
+	parseChecklist,
+	renderList,
+	renderWidget,
+	toMarkdown,
+	type WidgetConfig,
+} from "./view.ts";
 
 /** widget key：`ctx.ui.setWidget("todo", …)`。 */
 const WIDGET_KEY = "todo";
@@ -33,19 +49,31 @@ function exportDir(cwd: string, dir: string): string {
 /** 名字模板只准给文件名：目录归 `commands.export.dir`，带分隔符或为空就报错。 */
 function assertPlainName(name: string, pattern: string): void {
 	if (name === "" || name === "." || name === ".." || /[\\/]/.test(name)) {
-		throw new Error(`commands.export.fileNamePattern must be a file name, got "${pattern}"`);
+		throw new Error(
+			`commands.export.fileNamePattern must be a file name, got "${pattern}"`,
+		);
 	}
 }
 
 /** 剥掉一层配对引号：路径里有空格时用户会写 `"a b.md"`。 */
 function stripQuotes(value: string): string {
 	const quote = value[0];
-	if (value.length >= 2 && (quote === '"' || quote === "'") && value.endsWith(quote)) return value.slice(1, -1).trim();
+	if (
+		value.length >= 2 &&
+		(quote === '"' || quote === "'") &&
+		value.endsWith(quote)
+	)
+		return value.slice(1, -1).trim();
 	return value;
 }
 
 /** 落盘：从 `pattern` 算出的名字被占了就依次试 `-2`、`-3`…，返回真正写入的绝对路径。 */
-function writeExportFile(cwd: string, dir: string, pattern: string, text: string): string {
+function writeExportFile(
+	cwd: string,
+	dir: string,
+	pattern: string,
+	text: string,
+): string {
 	const target = exportDir(cwd, dir);
 	const name = exportFileName(pattern, new Date());
 	// 先判名字：模板写坏时别为一个注定失败的名字建目录
@@ -57,7 +85,10 @@ function writeExportFile(cwd: string, dir: string, pattern: string, text: string
 	const suffix = dot === -1 ? "" : name.slice(dot);
 
 	for (let attempt = 1; attempt <= EXPORT_NAME_ATTEMPTS; attempt += 1) {
-		const path = join(target, attempt === 1 ? name : `${stem}-${attempt}${suffix}`);
+		const path = join(
+			target,
+			attempt === 1 ? name : `${stem}-${attempt}${suffix}`,
+		);
 		try {
 			// wx：文件已存在就抛 EEXIST，不覆盖别人的东西
 			writeFileSync(path, text, { encoding: "utf-8", flag: "wx" });
@@ -95,10 +126,16 @@ export default function piTodo(pi: ExtensionAPI): void {
 	let collapsed = false;
 
 	/** 主题里我们用到的两个方法（结构化类型，省得 import pi 内部的 Theme）。 */
-	type StyleTheme = { strikethrough(text: string): string; style(text: string, options: { dim?: boolean }): string };
+	type StyleTheme = {
+		strikethrough(text: string): string;
+		style(text: string, options: { dim?: boolean }): string;
+	};
 
 	/** 已完成行的样式（`ui.widget.completedStyle`）：theme 决定观感，config 决定用哪种。 */
-	const styleCompleted = (theme: StyleTheme, style: Config["ui"]["widget"]["completedStyle"]): ((text: string) => string) => {
+	const styleCompleted = (
+		theme: StyleTheme,
+		style: Config["ui"]["widget"]["completedStyle"],
+	): ((text: string) => string) => {
 		if (style === "plain") return (text) => text;
 		if (style === "strikethrough") return (text) => theme.strikethrough(text);
 		return (text) => theme.style(text, { dim: true });
@@ -108,14 +145,24 @@ export default function piTodo(pi: ExtensionAPI): void {
 	const widget = (theme: StyleTheme): Component & { dispose?(): void } => {
 		const lineStyle = styleCompleted(theme, config.ui.widget.completedStyle);
 		return {
-			render: (width: number) => renderWidget(tasks, { ...widgetConfig, styleCompleted: lineStyle }, width) ?? [],
+			render: (width: number) =>
+				renderWidget(
+					tasks,
+					{ ...widgetConfig, styleCompleted: lineStyle },
+					width,
+				) ?? [],
 			invalidate: () => {},
 		};
 	};
 
 	/** 重设 widget：widget 关掉、没有 UI、宿主不认 setWidget 时都静默跳过；收起时明确传 undefined 让宿主收掉。 */
 	const draw = (ctx: ExtensionContext): void => {
-		if (!config.ui.widget.enabled || !ctx.hasUI || typeof ctx.ui?.setWidget !== "function") return;
+		if (
+			!config.ui.widget.enabled ||
+			!ctx.hasUI ||
+			typeof ctx.ui?.setWidget !== "function"
+		)
+			return;
 		if (collapsed) {
 			ctx.ui.setWidget(WIDGET_KEY, undefined);
 			return;
@@ -138,7 +185,11 @@ export default function piTodo(pi: ExtensionAPI): void {
 	};
 
 	/** 命令输出一律走 `ctx.ui.notify`；JSON / print 下没有 ui 就静默跳过（状态照旧落账）。 */
-	const notify = (ctx: ExtensionContext, message: string, type: "info" | "warning" | "error"): void => {
+	const notify = (
+		ctx: ExtensionContext,
+		message: string,
+		type: "info" | "warning" | "error",
+	): void => {
 		if (typeof ctx.ui?.notify !== "function") return;
 		ctx.ui.notify(message, type);
 	};
@@ -156,9 +207,15 @@ export default function piTodo(pi: ExtensionAPI): void {
 		promptSnippet: config.guidance.promptSnippet || undefined,
 		// keep 档要留成存档、clear 档整表完成后自己清 —— 两档告诉模型能清空只会拆台
 		promptGuidelines: config.guidance.promptGuidelines
-			.filter((guideline) => config.lifecycle.onFinish === "model" || !guideline.includes(CLEAR_HINT_MARK))
+			.filter(
+				(guideline) =>
+					config.lifecycle.onFinish === "model" ||
+					!guideline.includes(CLEAR_HINT_MARK),
+			)
 			// 一处 guideline 里可能写多次占位符：全部替换，没写的原样留着
-			.map((guideline) => guideline.replaceAll(TOOL_NAME_PLACEHOLDER, toolName)),
+			.map((guideline) =>
+				guideline.replaceAll(TOOL_NAME_PLACEHOLDER, toolName),
+			),
 		// 三个字段全必填、无字段文案；additionalProperties: false 与 plan.ts 的未知键拒绝同一件事
 		parameters: Type.Object(
 			{
@@ -166,7 +223,11 @@ export default function piTodo(pi: ExtensionAPI): void {
 					Type.Object(
 						{
 							content: Type.String(),
-							status: Type.Union([Type.Literal("pending"), Type.Literal("in_progress"), Type.Literal("completed")]),
+							status: Type.Union([
+								Type.Literal("pending"),
+								Type.Literal("in_progress"),
+								Type.Literal("completed"),
+							]),
 						},
 						{ additionalProperties: false },
 					),
@@ -185,7 +246,10 @@ export default function piTodo(pi: ExtensionAPI): void {
 			});
 			commit(next);
 			// details 留空：状态只写 custom entry，回放不读 toolResult 的 details
-			return { content: [{ type: "text", text: formatTasks(tasks) }], details: undefined };
+			return {
+				content: [{ type: "text", text: formatTasks(tasks) }],
+				details: undefined,
+			};
 		},
 	});
 
@@ -213,7 +277,11 @@ export default function piTodo(pi: ExtensionAPI): void {
 				}
 				if (sub === "export") {
 					if (!config.commands.export.enabled) {
-						notify(ctx, "export is disabled (commands.export.enabled = false)", "warning");
+						notify(
+							ctx,
+							"export is disabled (commands.export.enabled = false)",
+							"warning",
+						);
 						return;
 					}
 					if (rest !== "") {
@@ -221,8 +289,17 @@ export default function piTodo(pi: ExtensionAPI): void {
 						return;
 					}
 					try {
-						const path = writeExportFile(ctx.cwd, config.commands.export.dir, config.commands.export.fileNamePattern, toMarkdown(tasks));
-						notify(ctx, `Exported ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"} to ${path}`, "info");
+						const path = writeExportFile(
+							ctx.cwd,
+							config.commands.export.dir,
+							config.commands.export.fileNamePattern,
+							toMarkdown(tasks),
+						);
+						notify(
+							ctx,
+							`Exported ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"} to ${path}`,
+							"info",
+						);
 					} catch (error) {
 						// 命令面不许把异常抛回宿主（用户只会看到 extension_error，收不到提示）
 						notify(ctx, (error as Error).message, "error");
@@ -231,7 +308,11 @@ export default function piTodo(pi: ExtensionAPI): void {
 				}
 				if (sub === "import") {
 					if (!config.commands.import.enabled) {
-						notify(ctx, "import is disabled (commands.import.enabled = false)", "warning");
+						notify(
+							ctx,
+							"import is disabled (commands.import.enabled = false)",
+							"warning",
+						);
 						return;
 					}
 					const target = stripQuotes(rest);
@@ -241,7 +322,11 @@ export default function piTodo(pi: ExtensionAPI): void {
 					}
 					// 只在表是空的时候允许导：导进来的表会顶掉模型手上那张表
 					if (tasks.length > 0) {
-						notify(ctx, "Table is not empty. Run /todos clear first.", "warning");
+						notify(
+							ctx,
+							"Table is not empty. Run /todos clear first.",
+							"warning",
+						);
 						return;
 					}
 					const path = isAbsolute(target) ? target : resolve(ctx.cwd, target);
@@ -249,13 +334,28 @@ export default function piTodo(pi: ExtensionAPI): void {
 					try {
 						text = readFileSync(path, "utf-8");
 					} catch (error) {
-						notify(ctx, `Cannot read ${path}: ${(error as Error).message}`, "error");
+						notify(
+							ctx,
+							`Cannot read ${path}: ${(error as Error).message}`,
+							"error",
+						);
 						return;
 					}
 					try {
-						const next = validateTasks({ tasks: parseChecklist(text) }, { toolName, maxTasks: config.plan.maxTasks, maxContentChars: config.plan.maxSubjectChars });
+						const next = validateTasks(
+							{ tasks: parseChecklist(text) },
+							{
+								toolName,
+								maxTasks: config.plan.maxTasks,
+								maxContentChars: config.plan.maxSubjectChars,
+							},
+						);
 						commit(next);
-						notify(ctx, `Imported ${next.length} ${next.length === 1 ? "task" : "tasks"} from ${path}`, "info");
+						notify(
+							ctx,
+							`Imported ${next.length} ${next.length === 1 ? "task" : "tasks"} from ${path}`,
+							"info",
+						);
 					} catch (error) {
 						notify(ctx, (error as Error).message, "error");
 					}
@@ -280,7 +380,11 @@ export default function piTodo(pi: ExtensionAPI): void {
 	if (config.lifecycle.onFinish === "clear") {
 		// clear：整表完成后再等模型这波收工（agent_settled = 没有待办的工具调用），写空快照把账清掉
 		pi.on("agent_settled", () => {
-			if (tasks.length === 0 || tasks.some((task) => task.status !== "completed")) return;
+			if (
+				tasks.length === 0 ||
+				tasks.some((task) => task.status !== "completed")
+			)
+				return;
 			commit([]);
 		});
 	}

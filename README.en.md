@@ -35,8 +35,9 @@ Remove `@ssk_dev/rpiv-todo-lean` first if you have it installed — both registe
 
 ```bash
 pnpm install
-pnpm test                          # vitest
+pnpm lint                          # biome check: lint + format check (`--write` applies)
 pnpm typecheck                     # tsc --noEmit
+pnpm test                          # vitest
 pi -ne -e ./src/index.ts           # run from the working tree, no settings entry
 ```
 

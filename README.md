@@ -35,8 +35,9 @@ pi install npm:pi-todo-lite
 
 ```bash
 pnpm install
-pnpm test                          # vitest
+pnpm lint                          # biome check：lint + 格式化检查（`--write` 落盘）
 pnpm typecheck                     # tsc --noEmit
+pnpm test                          # vitest
 pi -ne -e ./src/index.ts           # 从工作区直接跑，不进 settings
 ```
 

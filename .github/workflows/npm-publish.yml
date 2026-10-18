@@ -41,7 +41,7 @@ jobs:
       - if: steps.check.outputs.publish == 'true'
         run: pnpm install --frozen-lockfile
       - if: steps.check.outputs.publish == 'true'
-        run: pnpm typecheck && pnpm test
+        run: pnpm lint && pnpm typecheck && pnpm test
       # OIDC 由 npm CLI 自己识别，provenance 也随之自动生成，不需要额外 flag
       - if: steps.check.outputs.publish == 'true'
         run: npm publish
