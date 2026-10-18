@@ -205,7 +205,7 @@ export default function piTodo(pi: ExtensionAPI): void {
 		label: "Todo",
 		description: config.guidance.description,
 		promptSnippet: config.guidance.promptSnippet || undefined,
-		// keep 档要留成存档、clear 档整表完成后自己清 —— 两档告诉模型能清空只会拆台
+		// keep 档要留成存档、clear 档会自己清 —— 两档告诉模型能清空只会拆台
 		promptGuidelines: config.guidance.promptGuidelines
 			.filter(
 				(guideline) =>
@@ -378,8 +378,9 @@ export default function piTodo(pi: ExtensionAPI): void {
 	}
 
 	if (config.lifecycle.onFinish === "clear") {
-		// clear：整表完成后再等模型这波收工（agent_settled = 没有待办的工具调用），写空快照把账清掉
-		pi.on("agent_settled", () => {
+		// clear：整表完成后等用户发下一条消息才清 —— 那时他一定看完表了；
+		// 在 agent_settled 就清会把表从他眼皮底下抽走（2026-10-18 改）
+		pi.on("input", () => {
 			if (
 				tasks.length === 0 ||
 				tasks.some((task) => task.status !== "completed")

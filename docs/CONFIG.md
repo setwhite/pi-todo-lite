@@ -41,7 +41,7 @@
 
 | 键 | 默认 | 取值 | 管什么 | 什么时候想改 | 代价 |
 |---|---|---|---|---|---|
-| `lifecycle.onFinish` | `"model"` | model / keep / clear | 清单干完怎么收场 | 想让它自己消失、或者自己清掉 | `model` = 靠模型干完那次调用传空表，**只有这一档**会告诉模型「干完发 `tasks: []`」；`keep` = 留着当本次会话的存档；`clear` = 整表完成后，等模型下一次**回复里没有工具调用**（说明它这波活干完、开始纯聊天）时写一条空表快照，widget 跟着变空（理由见 `docs/DECISIONS.md#5`）。`clear` 是事件驱动，不设时钟不设秒数 |
+| `lifecycle.onFinish` | `"clear"` | model / keep / clear | 清单干完怎么收场 | 想让它自己消失、或者自己清掉 | `model` = 靠模型干完那次调用传空表，**只有这一档**会告诉模型「干完发 `tasks: []`」；`keep` = 留着当本次会话的存档；`clear` = 整表完成后，**等用户发下一条消息**才写一条空表快照，widget 跟着变空 —— 干完那一刻不清，好让人先看完表（理由见 `docs/DECISIONS.md#6`）。`clear` 是事件驱动（`input`），不设时钟不设秒数 |
 
 ### 组 4 · 命令
 
@@ -95,7 +95,7 @@
     },
     "shortcut": { "toggle": "alt+t" }
   },
-  "lifecycle": { "onFinish": "model" },
+  "lifecycle": { "onFinish": "clear" },
   "commands": {
     "todos": { "enabled": true },
     "export": { "enabled": true, "dir": "", "fileNamePattern": "todo-{timestamp}.md" },

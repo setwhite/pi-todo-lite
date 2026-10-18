@@ -1,6 +1,6 @@
 # TODO — pi-todo-lite
 
-> 状态：M1、M2 已验收（2026-10-17），M2.5（auto-clear）已验收（2026-10-18）；M3 进行中 —— T13 / T14 已验收（2026-10-18），T16（biome）已验收（2026-10-18）；T15 已发 0.1.0，等 OIDC 发布 0.1.1 与 AC2 真机验收（2026-10-18）。
+> 状态：M1、M2 已验收（2026-10-17），M2.5（auto-clear）已验收（2026-10-18）；M3 进行中 —— T13 / T14 已验收（2026-10-18），T17（biome）已验收（2026-10-18）；T15 已发 0.1.0，等 OIDC 发布 0.1.1 与 AC2 真机验收；T18（clear 挪到用户发消息 + 默认档）已验收（2026-10-18）。
 > 任务按开发顺序排，每条单次会话可完成。验收标准（AC1–AC8）在 `docs/SPEC.md`，本文件不抄。
 > 做完就勾：证据是 `test/*.test.ts` 的用例名与真机日志，本文件不复述。
 
@@ -30,6 +30,16 @@
     - AC2 空表或还有未完成项时不写账
     - AC3 `model` / `keep` 不监听 `agent_settled`，行为不变
     - AC4 `docs/CONFIG.md` 的取值列与 `config.ts` 的枚举逐字一致，`docs.test.ts` 仍绿
+- [x] T18 clear 改在用户发消息时清，默认档换成 clear
+  - 交付物：`config.ts` 的 `DEFAULTS.lifecycle.onFinish` 由 `model` 换成 `clear`；`index.ts` 的自动清空从 `agent_settled` 挪到 `input`（source 不筛：interactive / rpc / extension 一样），守卫不变（表非空且整表 `completed`）
+  - 为什么：`agent_settled` 一到就清，是在用户眼皮底下把表抽走，他多半还没看完；挪到「用户发下一条消息」，看完是有保证的（`docs/DECISIONS.md#6`）
+  - 验收：
+    - AC1 默认档（不写配置）就是 `clear`：整表完成后 `emit input` 多一条 `{tasks: []}` 快照、回放得到空表、widget 变空；`agent_settled` 纹丝不动
+    - AC2 空表、或还有未完成项时，`input` 不写账
+    - AC3 `model` / `keep` 不监听 `input`；`model` 仍注册「干完发空表能清」那条 guideline，默认档不注册（模型侧文案 141 → 80 字符）
+    - AC4 `docs/CONFIG.md` 的默认值与 `DEFAULTS` 逐字一致，`docs.test.ts` 仍绿
+  - 前置：T16
+
 ## M3 · 发布
 
 - [x] T13 仓库元数据
@@ -57,7 +67,7 @@
 
 ## 工程 · dev QA
 
-- [x] T16 biome 接入
+- [x] T17 biome 接入
   - 交付物：`biome.json`（Biome 默认行宽 80、tab 缩进，只扫 `src/**` 与 `test/**`）、`package.json` 的 `lint` / `lint:fix`、`ci.yml` 与 `npm-publish.yml` 都跑 `pnpm lint`；`plan.ts` 里 `noControlCharactersInRegex` 用行内 ignore 并写明 why。devDep 精确钉 `2.5.15` —— 格式化器的小版本也会改输出，钉死免得平白 churn
   - 验收：
     - AC1 `pnpm lint` 退出 0、零诊断（9 个源文件全部按 Biome 格式化）

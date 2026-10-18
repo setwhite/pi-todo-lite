@@ -252,14 +252,16 @@ describe("index：注册（AC1）", () => {
 		expect(tool?.promptGuidelines).toEqual([
 			"todo: Keep content short, one line, imperative.",
 			"todo: Use for work with 3+ steps.",
-			"todo: When the whole plan is done, send `tasks: []` to clear.",
 		]);
 		expect(tool?.promptSnippet).toBeUndefined();
 		expect(JSON.parse(JSON.stringify(tool?.parameters))).toEqual(SCHEMA);
 	});
 
 	it("guidelines 里的 tool-name: 替成配置里的工具名", () => {
-		useConfig({ tools: { todo: { name: "tasklist" } } });
+		useConfig({
+			lifecycle: { onFinish: "model" },
+			tools: { todo: { name: "tasklist" } },
+		});
 		const harnessed = harness();
 
 		piTodo(harnessed.api);
@@ -285,6 +287,15 @@ describe("index：注册（AC1）", () => {
 		}
 	});
 
+	it("model 档仍注册「干完发空表能清」那条 guideline", () => {
+		useConfig({ lifecycle: { onFinish: "model" } });
+		const harnessed = harness();
+
+		piTodo(harnessed.api);
+
+		expect(harnessed.tools[0]?.promptGuidelines).toHaveLength(3);
+	});
+
 	it("一条 guideline 里写了多次 tool-name 时每处都替换", () => {
 		useConfig({
 			guidance: { promptGuidelines: ["tool-name: a tool-name note"] },
@@ -296,7 +307,7 @@ describe("index：注册（AC1）", () => {
 		expect(harnessed.tools[0]?.promptGuidelines).toEqual(["todo: a todo note"]);
 	});
 
-	it("模型侧文案对得上 spec AC6 的定稿数：description 37 字符、guidelines 合计 141 字符", () => {
+	it("模型侧文案对得上 spec AC6 的定稿数：description 37 字符、guidelines 合计 80 字符", () => {
 		useConfig();
 		const harnessed = harness();
 
@@ -304,8 +315,8 @@ describe("index：注册（AC1）", () => {
 
 		const tool = harnessed.tools[0];
 		expect(tool?.description?.length).toBe(37);
-		expect(tool?.promptGuidelines?.join("").length).toBe(141);
-		expect(tool?.promptGuidelines?.length).toBe(3);
+		expect(tool?.promptGuidelines?.join("").length).toBe(80);
+		expect(tool?.promptGuidelines?.length).toBe(2);
 	});
 
 	it("description 与 guidelines 跟着配置走", () => {
@@ -502,14 +513,14 @@ function makeTasks(count: number): Array<{ content: string; status: string }> {
 }
 
 describe("index：lifecycle.onFinish（T12）", () => {
-	it("clear：整表完成后 agent_settled 一到就写空快照；没全完成或空表都不动", async () => {
+	it("clear：整表完成后等用户发消息才写空快照；空表、没全完成、刚干完都不动", async () => {
 		useConfig({ lifecycle: { onFinish: "clear" } });
 		const harnessed = harness();
 		piTodo(harnessed.api);
 		emit(harnessed, "session_start");
 
 		// 空表：不能把「还没开始」当「干完了」
-		emit(harnessed, "agent_settled");
+		emit(harnessed, "input");
 		expect(harnessed.entries).toEqual([]);
 
 		await callTool(harnessed, {
@@ -518,16 +529,20 @@ describe("index：lifecycle.onFinish（T12）", () => {
 				{ content: "b", status: "pending" },
 			],
 		});
-		emit(harnessed, "agent_settled");
+		emit(harnessed, "input");
 		expect(harnessed.entries).toHaveLength(1);
 		expect(harnessed.lines(80)).toEqual(["Todo 1/2", "[x] a", "[ ] b"]);
 
 		await callTool(harnessed, {
 			tasks: [{ content: "a", status: "completed" }],
 		});
+		// 干完那一刻不清：表留在屏幕上，等用户看完
 		emit(harnessed, "agent_settled");
+		expect(harnessed.entries).toHaveLength(2);
+		expect(harnessed.lines(80)).toEqual(["Todo 1/1", "[x] a"]);
 
-		// 两次工具调用 + 自动清空那一条
+		// 用户下一条消息一到才清：两次工具调用 + 自动清空那一条
+		emit(harnessed, "input");
 		expect(harnessed.entries).toHaveLength(3);
 		expect(harnessed.entries.at(-1)).toEqual({
 			type: "custom",
@@ -545,14 +560,19 @@ describe("index：lifecycle.onFinish（T12）", () => {
 		expect(harnessed.lines(80)).toEqual(["Todo 0/1", "[ ] c"]);
 	});
 
-	it("model / keep（默认 model）：压根不监听 agent_settled", async () => {
-		for (const onFinish of [undefined, "keep"] as const) {
-			useConfig(
-				onFinish === undefined ? undefined : { lifecycle: { onFinish } },
-			);
+	it("默认档是 clear：什么都不配也监听 input；model / keep 不监听", () => {
+		useConfig();
+		const byDefault = harness();
+		piTodo(byDefault.api);
+		expect(byDefault.handlers.has("input")).toBe(true);
+		expect(byDefault.handlers.has("agent_settled")).toBe(false);
+
+		for (const onFinish of ["model", "keep"] as const) {
+			useConfig({ lifecycle: { onFinish } });
 			const harnessed = harness({ cwd: makeTempDir("cwd") });
 			piTodo(harnessed.api);
 
+			expect(harnessed.handlers.has("input")).toBe(false);
 			expect(harnessed.handlers.has("agent_settled")).toBe(false);
 		}
 	});

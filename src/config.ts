@@ -61,7 +61,8 @@ export const DEFAULTS: Config = {
 		},
 		shortcut: { toggle: "alt+t" },
 	},
-	lifecycle: { onFinish: "model" },
+	// 默认 clear：整表完成后等用户下一条消息再清（时机见 docs/SPEC.md 的 AC8）
+	lifecycle: { onFinish: "clear" },
 	commands: {
 		todos: { enabled: true },
 		export: { enabled: true, dir: "", fileNamePattern: "todo-{timestamp}.md" },

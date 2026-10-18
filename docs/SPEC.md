@@ -22,7 +22,7 @@
 - `/todos` 看全表、清空、导出 markdown、再从 markdown 读回，计划能跨工具搬运。
 - 配置写错时立刻看见带字段路径的报错，数值越界自动夹到区间。
 - 模型侧一整段 ≤ 120 tok。
-- 工具名可改；清单干完能按 `lifecycle.onFinish` 选收场（模型收 / 留着 / 全完成后自动清空）。
+- 工具名可改；清单干完能按 `lifecycle.onFinish` 选收场（模型收 / 留着 / 整表完成后等用户下一条消息再清；默认这一档）。
 
 ## 协议
 
@@ -95,7 +95,7 @@
 | AC5 | `/todos export` 吐出的 markdown 能被 `/todos import` 原样读回 |
 | AC6 | 模型侧开销 ≤ 120 tok：description + guidelines + 工具签名那一行 |
 | AC7 | 干净克隆上 `pnpm typecheck && pnpm test` 通过；CI 三个 job 绿 |
-| AC8 | 自动清空：`lifecycle.onFinish: "clear"` 时整表 `completed` 且 `agent_settled` 后，会话里多一条空表快照、回放得到空表、widget 消失；还有未完成项时不写账 |
+| AC8 | 自动清空：`lifecycle.onFinish: "clear"`（默认）时，整表 `completed` 之后用户再发一条消息，会话里多一条空表快照、回放得到空表、widget 变空；还有未完成项、或用户还没发下一条时都不写账 |
 
 ## 不做的
 
