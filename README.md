@@ -2,6 +2,8 @@
 
 [English](README.en.md) | 简体中文
 
+![pi-todo-lite：输入框上方的 Todo 表与运行中的工具调用](assets/cover.png)
+
 pi 的 todo 扩展：模型维护一张有序的 Todo 表，输入框上方常驻显示；compaction、切分支、`--continue` 之后照旧回放。四个源文件、零运行时依赖。
 
 ## 安装

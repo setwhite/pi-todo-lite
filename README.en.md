@@ -2,6 +2,8 @@
 
 English | [简体中文](README.md)
 
+![pi-todo-lite: the Todo table above the editor alongside a running tool call](assets/cover.png)
+
 A todo extension for [Pi](https://pi.dev): the model keeps one ordered task table, shown above the editor and replayed after compaction, branch switches and `--continue`. Four source files, zero runtime dependencies.
 
 ## Install
