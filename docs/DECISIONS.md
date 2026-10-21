@@ -20,11 +20,11 @@
 
 ## 3 · 不做 nudge（收尾提醒）
 
-**决定**：不在 `agent_settled` 时往 systemPrompt 塞「还有未完成项」的提醒。替代是一条 guideline「完成即标，别攒着」。
+**决定**：不在 `agent_settled` 时往 systemPrompt 塞「还有未完成项」的提醒。替代是模型侧 guideline（默认：短句、3+ 步；`model` 档再加「干完发空表能清」），不额外加提醒。
 
 **为什么**：① 中途改 systemPrompt 前缀会打掉 provider 的缓存前缀，走完整 transcript checkpoint；② 提醒的方向是「让表看起来干净」，模型被催时最省力的路径是把没验完的标成 completed —— 一张过于乐观的表比陈旧更坏，陈旧至少还把 `in_progress` 摆在那儿。
 
-**后果**：`agent_settled` 只用在 `lifecycle.onFinish` 的收场动作上，不碰 prompt。（第 6 条之后本扩展不再监听它。）
+**后果**：自动清空不监听 `agent_settled`，也不碰 prompt；`agent_settled` 与本扩展无关（见第 6 条）。
 
 ## 4 · 配置：只读、坏配置抛错、越界 clamp
 
@@ -34,18 +34,18 @@
 
 **后果**：报错消息是给人看的界面 —— 值回显有界（超 32 字符截断、容器只说形状），不把任务正文灌进消息。加一个键要同时动类型、默认值、校验、README 的示例四处，缺一处算没做完（`test/docs.test.ts` 会抓）。判据只有一条：**你真的会为了它去开一下 config.json 吗** —— 不会的键就别加。
 
-## 5 · 自动清空：整表完成后写空快照（取代 fade）
+## 5 · 自动清空：清显示要连账一起清（触发点与默认档见第 6 条）
 
-**决定**：`lifecycle.onFinish` 三档 `model` / `keep` / `clear`。`clear` 在 `agent_settled`（模型这波活干完、回复里没有工具调用）且表非空且整表 `completed` 时，写一条 `{tasks: []}` 快照把账清掉。
+**决定**：`lifecycle.onFinish` 三档 `model` / `keep` / `clear`，不设只收起 widget 的 `fade`。`clear` 写一条 `{tasks: []}` 快照，与 `/todos clear` 共用同一条写入路径；自动触发只在整表 `completed` 时发生，未完成的计划永不被自动清掉。
 
-**为什么**：① 只清显示的做法兜不住 —— `session_start` / `compact` / `tree` 回放会把旧表捞回来，账与视图两边不一致，所以清就得连账一起清（`clear` 与 `/todos clear` 走同一条写入路径）；② 触发点限定在「整表完成」，吃掉的只有已完成的存档，未完成的计划永远不被自动清掉，耐久 story 不破；③ 保留 `model` 那档 —— 让模型自己在最后一次调用传空表，是它知道表清了的唯一路径；④ 原来的 `fade`（只收起 widget）被它取代：屏幕上的结果与「按一下 `alt+t`」一模一样，模型下一轮重发整表又把 widget 顶回来，省一次按键不值一档。
+**为什么**：① 只清显示兜不住 —— `session_start` / `compact` / `tree` 回放会把旧表捞回来，账与视图两边不一致，所以清就得连账一起清；② `fade` 与按一下 `alt+t` 的屏幕结果一模一样，模型下一轮重发整表又把 widget 顶回来，省一次按键不值一档；③ 保留 `model` 档 —— 让模型自己在最后一次调用传空表，是它知道表清了的唯一路径。
 
-**后果**：清空之后模型上下文里那张表还在，它下一轮若重发整表，表会回来（协议是整表覆盖）；要让它也知道得上 nudge / steer（见第 3 条）。收起 widget 只剩 `alt+t` 一个入口。**后续**：第 6 条把触发点从 `agent_settled` 挪到 `input`，并把默认档从 `model` 换成 `clear`。
+**后果**：收起 widget 只剩 `alt+t` 一个入口。清空后模型上下文里那张表还在，它下一轮若重发整表，表会回来（协议是整表覆盖）；要让它也知道得上 nudge / steer（第 3 条明确不做）。
 
-## 6 · clear 挪到用户发消息时（并成为默认档）
+## 6 · clear 在用户发下一条消息时触发，并成为默认档
 
-**决定**：`lifecycle.onFinish: "clear"` 的触发点从 `agent_settled` 换成 `input`（source 不筛：interactive / rpc / extension 一样），守卫不变（表非空且整表 `completed`）。默认值由 `model` 改成 `clear`。
+**决定**：`lifecycle.onFinish: "clear"` 挂在 `input`（source 不筛：interactive / rpc / extension 一样），守卫是表非空且整表 `completed`；默认值由 `model` 改成 `clear`。
 
-**为什么**：① `agent_settled` 一到就清，是在用户眼皮底下把表抽走 —— 他多半还没看完，表越长越糟；挪到「用户发下一条消息」，看完是有保证的，下一轮又是干净的一张纸。② 挂 `input` 而不是 `before_agent_start`：`input` 就是「用户发消息」本身，三种跑法（TUI / RPC / 其他扩展注入）同一个入口。③ 默认换成 `clear`：多数时候只想让它干完就消失，不必赌模型记得发 `tasks: []`；第 5 条 ③ 那档仍留在配置里。④ 代价：默认档不再注册「干完发 `tasks: []`」那条 guideline（第 5 条 ③ 的规则 —— 会自己清的档告诉模型只会拆台），模型侧文案从 141 字符缩到 80。
+**为什么**：① `agent_settled` 一到就清，是在用户眼皮底下把表抽走 —— 他多半还没看完，表越长越糟；挪到「用户发下一条消息」，看完是有保证的，下一轮又是干净的一张纸。② 挂 `input` 而不是 `before_agent_start`：`input` 就是「用户发消息」本身，三种跑法（TUI / RPC / 其他扩展注入）同一个入口。③ 默认换成 `clear`：多数时候只想让它干完就消失，不必赌模型记得发 `tasks: []`；`model` 档仍留在配置里。④ 代价：默认档不再注册「干完发 `tasks: []`」那条 guideline（会自己清的档告诉模型只会拆台），模型侧文案从 141 字符缩到 80。
 
-**后果**：`clear` 档下那张完成的表会一直停在屏幕上，直到用户敲下一条消息；想立刻收起还是 `alt+t`。`agent_settled` 从此与本扩展无关。
+**后果**：`clear` 档下那张完成的表会一直停在屏幕上，直到用户敲下一条消息；想立刻收起还是 `alt+t`。`agent_settled` 与本扩展无关。

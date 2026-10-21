@@ -2,7 +2,7 @@
 
 [English](README.en.md) | 简体中文
 
-pi 的 todo 扩展：模型维护一张有序的 Todo 表，输入框上方常驻显示；compaction、切分支、`--continue` 之后照旧回放。约 400 行、零运行时依赖。
+pi 的 todo 扩展：模型维护一张有序的 Todo 表，输入框上方常驻显示；compaction、切分支、`--continue` 之后照旧回放。四个源文件、零运行时依赖。
 
 ## 安装
 
@@ -88,12 +88,15 @@ pi -ne -e ./src/index.ts           # 从工作区直接跑，不进 settings
 
 源码全在 `src/`（入口 `src/index.ts`），测试在 `test/`，仓库根只放配置与文档。
 
+发版：改 `package.json` 的 `version` 与 `CHANGELOG.md`，推送 `main` 即由 `.github/workflows/npm-publish.yml` 发布（registry 上已有该版本则跳过）。
+
 ## 文档
 
 | 文档 | 什么时候看 |
 |---|---|
 | [`docs/SPEC.md`](docs/SPEC.md) | 唯一契约：问题、用户故事、工具协议、界面、验收标准（AC）、不做的、术语。要改协议先改它 |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | 想推翻某个设计（整表协议、状态载体、nudge、配置读取、自动清空）之前，先看当初为什么这么定 |
+| [`CHANGELOG.md`](CHANGELOG.md) | 每个已发布版本的用户可见变更；升级前看这里 |
 
 文档只留代码里读不出的东西：签名、导出、逐条行为看源码。
 

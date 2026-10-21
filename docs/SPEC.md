@@ -1,6 +1,6 @@
 # SPEC · pi-todo-lite
 
-> 状态：M1 / M2 已验收（2026-10-17），M2.5（auto-clear）已验收（2026-10-18），M3 进行中（T13 / T14 已验收，T15 待做）—— 进度见 `docs/TODO.md`。
+> 状态：M1 / M2 / M2.5 / M3 与 dev QA 全部验收（2026-10-17 ~ 10-18），`0.1.0` / `0.1.1` 已发布 —— 发布记录见 `CHANGELOG.md`，任务台账见 `docs/TODO.md`。
 > 这是唯一的契约：改协议、加命令、动验收标准都先改这里。为什么这么定见 `docs/DECISIONS.md`，键表见 README 的配置节。
 > 只写代码里读不出的东西 —— 签名、导出、逐条行为一律看源码。
 
@@ -10,7 +10,7 @@
 
 要的只有三件：**纪律**（模型维护一份有序计划，不丢线程）、**可见性**（不翻 transcript 就知道现在在干什么）、**耐久**（compaction、切分支、`--continue` 之后表还在）。
 
-用户：我自己，TUI 为主、偶尔 RPC。目标约 400 行、零运行时依赖、状态只写一条自己的账；最终发到 npm 当 `pi-todo-lite`。
+用户：我自己，TUI 为主、偶尔 RPC。只做四个平铺源文件、零运行时依赖、状态只写一条自己的账；已发到 npm 当 `pi-todo-lite`。
 
 ## 用户故事
 
@@ -45,7 +45,7 @@
 - 读：`session_start` / `session_compact` / `session_tree` → `replayTasks(getBranch())` → 重画。取最后一条**有效**快照：坏条目整条跳过、继续往前扫；一条都没有 → 空表；不读 toolResult 的 details。
 - 清空 = 写一条 `{tasks: []}` 快照：`/todos clear` 与 `lifecycle.onFinish: "clear"` 共用这条路 —— 账只有这一个写入路径。模型侧只有 `onFinish: "model"` 档知道「干完发空表能清」：keep 要留成存档、clear 会自己清，这两档知道只会拆台，那条 guideline 不注册。
 - 账本侧口子宽、模型侧口子严：`replayTasks` 只认 `content`（trim 过）与 `status`，转义序列（CSI / OSC 等）**整条丢掉**、其余控制字符压成一个空格；`validateTasks` 则一律拒绝。
-- `/todos` 的输出走 `ctx.ui.notify`：不进模型上下文、不写会话文件，RPC / print 下也拿得到。
+- `/todos` 的输出走 `ctx.ui.notify`：不进模型上下文、不写会话文件；没有 UI 时静默跳过（见「配置与命令」）。
 
 ## 界面
 
@@ -58,7 +58,7 @@
 
 ## 配置与命令
 
-- 21 个键的默认值只在 README 那份带注释的完整示例里（它就是键表，`test/docs.test.ts` 拿它跟 `DEFAULTS` 对账，中英文两版必须解析出同一份）。路径 `<agent dir>/pi-todo/config.json`，扩展**只读不写**；文件不存在 → 全默认值；JSON 坏 / 未知键 / 类型枚举错 → 抛错（消息带绝对路径与逐条 `字段路径: 原因`）；数值越界 clamp、非整数按类型错拒。
+- 配置键表（含 `guidance` 三字段）只在 README 那份带注释的完整示例里（`test/docs.test.ts` 拿键集与默认值跟 `DEFAULTS` 对账，中英文两版必须解析出同一份；`guidance` 的示例值是占位符，跳过取值）。路径 `<agent dir>/pi-todo/config.json`，扩展**只读不写**；文件不存在 → 全默认值；JSON 坏 / 未知键 / 类型枚举错 → 抛错（消息带绝对路径与逐条 `字段路径: 原因`）；数值越界 clamp、非整数按类型错拒。
 - `/todos`（全列清单）/ `clear` / `export`（markdown checklist，默认 `todo-{timestamp}.md`，同名让位不覆盖）/ `import <file>`（只吃 markdown checklist；表非空时拒绝；先宽松解析再严格校验）。命令名固定 `todos`，不做成配置键。
 - 两面错误方向相反：工具面把 `Error` 抛给 pi 回给模型；命令面一律 catch 成 `notify(error)` —— 抛出去宿主只记 `extension_error`，用户在对话区看不到原因。
 - UI 调用一律容错：没有 `ctx.ui`（RPC / print）或 `setWidget` / `notify` 不可用时静默跳过，状态照旧落账。
@@ -69,12 +69,12 @@
 
 | 文件 | 职责 |
 |---|---|
-| `src/index.ts` | 入口（`package.json` 的 `pi.extensions`）与接线：读配置 → 注册工具 / 命令 / 事件 / 快捷键 → 调 `setWidget` / `appendEntry`。文件 IO（`fs` / `path`）只在这里 |
+| `src/index.ts` | 入口（`package.json` 的 `pi.extensions`）与接线：读配置 → 注册工具 / 命令 / 事件 / 快捷键 → 调 `setWidget` / `appendEntry`。`/todos import` / `export` 的文件 IO 只在这里 |
 | `src/plan.ts` | 计划语义：类型、校验、回放、给模型的文本。不 import 任何东西 |
 | `src/view.ts` | 显示与文本：widget 行、`/todos` 文本、markdown 导出与解析。只从 `plan.ts` 取类型 |
 | `src/config.ts` | 读 `config.json`、默认值、校验、clamp。只碰 `node:fs` / `node:path` / `node:os` |
 
-放置规则：语义与校验 → `plan.ts`；显示与文本 → `view.ts`；配置键 → `config.ts`（类型、默认值、校验、README 的示例四处一起改）；只有注册或调宿主才碰 `index.ts`。`src/` 下不建 `utils.ts` / `types.ts` / `constants.ts`，类型跟着用它的模块走；`tsconfig.json` 的 `include` 只列 `src` 与 `test`，散在根目录的 `.ts` 不参与编译。
+放置规则：语义与校验 → `plan.ts`；显示与文本 → `view.ts`；配置键 → `config.ts`（类型、默认值、校验、README 的示例四处一起改）；只有注册、调宿主与 `/todos import` / `export` 的文件 IO 才碰 `index.ts`。`src/` 下不建 `utils.ts` / `types.ts` / `constants.ts`，类型跟着用它的模块走；`tsconfig.json` 的 `include` 只列 `src` 与 `test`，散在根目录的 `.ts` 不参与编译。
 
 **不变量**：「`content` 单行、无控制字符与不可见字符、trim 过」由 `plan.ts` 在数据入口保证 —— 所以下游渲染不必再清终端控制字符、也不必防一条变多行。
 
@@ -82,9 +82,9 @@
 
 ## 测试与验收
 
-- 根 `test/` 按模块镜像。`index.ts` 用 fake api + fake ctx，只断言**我们交给 pi 的东西**（注册的文案与 schema、写出的 entry、widget 的行、notify 的文案、真落盘的文件），不测 pi 自己的校验与渲染。
+- 根 `test/` 按模块镜像（另有 `docs.test.ts` 对账 README 与 `DEFAULTS`）。`index.ts` 用 fake api + fake ctx，只断言**我们交给 pi 的东西**（注册的文案与 schema、写出的 entry、widget 的行、notify 的文案、真落盘的文件），不测 pi 自己的校验与渲染。
 - 喂普通值：回放用例手写 entries；渲染用例把宽度当参数传（40 / 80 / 120），不读 `process.stdout.columns`；配置用例注入 `configPath` 与 `env`，不碰真实 home。
-- 命令：`pnpm test`、`pnpm typecheck`，干净克隆上都必须通过。
+- 命令：`pnpm lint`、`pnpm test`、`pnpm typecheck`，干净克隆上都必须通过。
 
 | | 验收 |
 |---|---|
@@ -94,13 +94,13 @@
 | AC4 | 真机：起一个 ≥ 3 步的任务，表出现在输入框上方；`/todos` 打出清单；`tasks: []` 后 widget 消失 |
 | AC5 | `/todos export` 吐出的 markdown 能被 `/todos import` 原样读回 |
 | AC6 | 模型侧开销 ≤ 120 tok：description + guidelines + 工具签名那一行 |
-| AC7 | 干净克隆上 `pnpm typecheck && pnpm test` 通过；CI 三个 job 绿 |
+| AC7 | 干净克隆上 `pnpm lint && pnpm typecheck && pnpm test` 通过；CI 三个 job 绿 |
 | AC8 | 自动清空：`lifecycle.onFinish: "clear"`（默认）时，整表 `completed` 之后用户再发一条消息，会话里多一条空表快照、回放得到空表、widget 变空；还有未完成项、或用户还没发下一条时都不写账 |
 
 ## 不做的
 
 - 项目级持久化（跨会话 / 跨 cwd 的存储）；跨天的清单归仓库里的 `TODO.md`。
-- nudge 与 steer（理由见 `docs/DECISIONS.md#3`）、status line。
+- nudge 与 steer（理由见 `docs/DECISIONS.md` 第 3 条）、status line。
 - 自定义 `renderCall` / `renderResult`、`prepareArguments` 容错层、日志与调试开关。
 - 子代理看板；`key` / `baseVersion`；i18n。
 - 压缩后忘表的兜底：表只活在模型上下文里，被 compaction 截掉后模型不知道表内容、widget 却还在显示 —— 先不做，等真观察到症状再议。
@@ -112,10 +112,10 @@
 
 - **影响范围**：装上之前要卸掉 `@ssk_dev/rpiv-todo-lean`（两个都注册 `todo`）；开发期用 `pi -ne -e ./src/index.ts` 绕开。不动 `settings.json`；除 `/todos import|export` 显式指定外不读项目内文件。
 - **回退**：卸包、装回 lean 版；会话里已经写下的 `pi-todo-state` 条目留着不影响任何东西。
-- **交付形态**：npm 包 `pi-todo-lite`，`0.1.0` + MIT + setwhite；宿主包只进 `peerDependencies` 且范围写 `*`。
+- **交付形态**：npm 包 `pi-todo-lite`，MIT + setwhite；宿主包只进 `peerDependencies` 且范围写 `*`。包内只有 `src/` 与 npm 自动带入的 `package.json` / README / LICENSE；`CHANGELOG.md`、`docs/`、`test/` 不随包发布。
 - **已知偏差与口径**：
   - markdown 只有两态：`in_progress` 导出成 `- [ ]`、读回变 `pending`（`Todo 0/3 · 1 doing` → `Todo 0/3`）。
-  - `/todos` 与本机的 `rpiv-todo-lean` 撞名，未解（改命令名要动冻结的 21 键与这份 spec 的「不做的」）。
+  - `/todos` 与本机的 `rpiv-todo-lean` 撞名，未解（改命令名要动 `index.ts`、这份 spec 与 README 的用法说明）。
   - headless（`-p`）下 `ctx.hasUI` 为 false，widget 只能真 TUI 验；winpty 退出码 58 是 `/exit` 之后 pi 的退出码、不是扩展报错；宿主另有 `MAX_WIDGET_LINES = 10`。
   - 真机 TUI 抓包里样式序列计数为 0：pi 的样式走 chalk，抓包时 stdout 是管道、chalk level 0 —— 不是没生效，可见效果要在真人终端看。
   - **待定**：模型侧文案按实测再调；两条 guideline 够不够让模型整表重发，待实测。

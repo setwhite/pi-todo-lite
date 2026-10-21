@@ -2,7 +2,7 @@
 
 English | [简体中文](README.md)
 
-A todo extension for [Pi](https://pi.dev): the model keeps one ordered task table, shown above the editor and replayed after compaction, branch switches and `--continue`. ~400 lines, zero runtime dependencies.
+A todo extension for [Pi](https://pi.dev): the model keeps one ordered task table, shown above the editor and replayed after compaction, branch switches and `--continue`. Four source files, zero runtime dependencies.
 
 ## Install
 
@@ -88,12 +88,15 @@ pi -ne -e ./src/index.ts           # run from the working tree, no settings entr
 
 Source lives in `src/` (`src/index.ts` is the entry), tests in `test/`, the repo root only holds config and docs.
 
+Release: bump `version` in `package.json` and update `CHANGELOG.md`; pushing to `main` publishes via `.github/workflows/npm-publish.yml` (skips versions already on the registry).
+
 ## Docs
 
 | Doc | When to read it |
 |---|---|
 | [`docs/SPEC.md`](docs/SPEC.md) | The contract (Chinese): problem, stories, tool protocol, UI, acceptance criteria, non-goals, glossary |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Before overturning a design (whole-table protocol, state carrier, nudge, config reading, auto-clear) — why it was chosen (Chinese) |
+| [`CHANGELOG.md`](CHANGELOG.md) | User-visible changes for each released version |
 
 ## License
 

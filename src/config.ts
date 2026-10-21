@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-/** 21 个键的类型，键表与取值说明见 README 的配置节。 */
+/** 配置键的类型；键表与取值说明见 README 的配置节。 */
 export type Config = {
 	tools: { todo: { name: string } };
 	plan: {
