@@ -65,7 +65,7 @@
 
 ## 模块
 
-源码全在 `src/`（四个平铺文件，不建目录）、测试在 `test/` 按模块镜像 —— 仓库根只放配置与文档。**依赖只能从左往右**，反向引用不允许；`plan.ts` / `view.ts` / `config.ts` 一律不 import 宿主包（入参出参都是普通值，测试因此不用 mock 宿主）；宿主 API 只出现在 `index.ts`，且只用 `import type`。
+源码全在 `src/`（四个平铺文件，不建目录）、测试在 `test/` 按模块镜像 —— 仓库根只放配置与文档。**依赖只能从左往右**，反向引用不允许；`plan.ts` / `view.ts` / `config.ts` 一律不 import 宿主包（入参出参都是普通值，测试因此不用 mock 宿主）；宿主 API 只出现在 `index.ts`，且只用 `import type`。这套方向与单一出口由 `scripts/check-imports.mjs` 执行（`pnpm check:imports`），改图要同时改它里面的 `EDGES` / `SINGLE_IMPORT`。
 
 | 文件 | 职责 |
 |---|---|
@@ -84,7 +84,7 @@
 
 - 根 `test/` 按模块镜像（另有 `docs.test.ts` 对账 README 与 `DEFAULTS`）。`index.ts` 用 fake api + fake ctx，只断言**我们交给 pi 的东西**（注册的文案与 schema、写出的 entry、widget 的行、notify 的文案、真落盘的文件），不测 pi 自己的校验与渲染。
 - 喂普通值：回放用例手写 entries；渲染用例把宽度当参数传（40 / 80 / 120），不读 `process.stdout.columns`；配置用例注入 `configPath` 与 `env`，不碰真实 home。
-- 命令：`pnpm lint`、`pnpm test`、`pnpm typecheck`，干净克隆上都必须通过。
+- 命令：`pnpm lint`、`pnpm check:imports`、`pnpm test`、`pnpm typecheck`，干净克隆上都必须通过；发布物由 `test/package.test.ts` 对账（`files` 与 `pi.extensions` 的入口），发布流水线在 publish 前再对真实 tarball 断一遍。
 
 | | 验收 |
 |---|---|

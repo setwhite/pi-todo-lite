@@ -83,12 +83,15 @@ Unknown keys throw (see above), never silently ignored. `pnpm test` reconciles t
 ```bash
 pnpm install
 pnpm lint                          # biome check: lint + format check (`--write` applies)
+pnpm check:imports                 # dependency-direction gate: executable form of docs/SPEC.md "Modules"
 pnpm typecheck                     # tsc --noEmit
 pnpm test                          # vitest
 pi -ne -e ./src/index.ts           # run from the working tree, no settings entry
 ```
 
-Source lives in `src/` (`src/index.ts` is the entry), tests in `test/`, the repo root only holds config and docs.
+Source lives in `src/` (`src/index.ts` is the entry), tests in `test/`, the repo root only holds config and docs. CI runs lint / `check:imports` / typecheck / test.
+
+Pre-commit gate (optional, per clone): `git config core.hooksPath .githooks` — every commit then runs the same four, about 3 seconds.
 
 Release: bump `version` in `package.json` and update `CHANGELOG.md`; pushing to `main` publishes via `.github/workflows/npm-publish.yml` (skips versions already on the registry).
 

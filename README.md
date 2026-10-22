@@ -83,12 +83,15 @@ pi -e git:github.com/setwhite/pi-todo-lite        # 只试一次，不落 settin
 ```bash
 pnpm install
 pnpm lint                          # biome check：lint + 格式化检查（`--write` 落盘）
+pnpm check:imports                 # 依赖方向闸：docs/SPEC.md「模块」一节的机读版
 pnpm typecheck                     # tsc --noEmit
 pnpm test                          # vitest
 pi -ne -e ./src/index.ts           # 从工作区直接跑，不进 settings
 ```
 
-源码全在 `src/`（入口 `src/index.ts`），测试在 `test/`，仓库根只放配置与文档。
+源码全在 `src/`（入口 `src/index.ts`），测试在 `test/`，仓库根只放配置与文档。CI 跑上面 lint / `check:imports` / typecheck / test 四条。
+
+提交前闸（可选，仓库内生效）：`git config core.hooksPath .githooks`，之后每次提交跑同样四条，约 3 秒。
 
 发版：改 `package.json` 的 `version` 与 `CHANGELOG.md`，推送 `main` 即由 `.github/workflows/npm-publish.yml` 发布（registry 上已有该版本则跳过）。
 
