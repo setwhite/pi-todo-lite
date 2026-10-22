@@ -1,3 +1,7 @@
+# CI：风格闸 + 依赖图闸 + 类型检查 + 测试（不打真实网络；test/ 全用 fake api 与临时目录）。
+# 矩阵：Linux 覆盖 Node 22 / 24，Windows 覆盖 Node 22——Windows 的 core.autocrlf 会改行尾，
+# .gitattributes 钉了 LF，这一格就是那条不变量的证据。
+# action 按 commit SHA 固定（tag 可被移动），行尾注释是对应版本。
 name: CI
 
 on:
@@ -8,10 +12,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     name: check (Node ${{ matrix.node }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -23,14 +32,15 @@ jobs:
           - os: windows-latest
             node: 22
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # 版本取自 package.json 的 packageManager，与本地一致
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
+      - run: pnpm check:imports
       - run: pnpm typecheck
       - run: pnpm test
