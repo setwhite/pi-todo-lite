@@ -1,6 +1,6 @@
 {
   "name": "pi-todo-lite",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Pi todo extension: one ordered task table above the editor, replayed after compaction, branch switch and --continue.",
   "keywords": [
     "pi-package",
