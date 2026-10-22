@@ -1,0 +1,8 @@
+#!/bin/sh
+# 本地闸：与 CI 同款四条，全套约 3 秒。启用一次即可（只写本仓库的配置）：
+#   git config core.hooksPath .githooks
+set -e
+pnpm lint
+pnpm check:imports
+pnpm typecheck
+pnpm test
