@@ -13,3 +13,8 @@ minimumReleaseAgeExclude:
   - '@vitest/spy@5.0.5'
   - typebox@1.4.0
   - vitest@5.0.5
+# pi-coding-agent 把 undici 精确钉死 8.10.2（1.4.0 亦然），命中 GHSA-xjj6-f33q-929c（high）
+# 与 GHSA-f72v-6w45-q472。上游改口之前，只能在这里强制升到修复版。
+# 发布物 dependencies 为空，override 只作用于开发与 CI 安装出来的那一份。
+overrides:
+  undici: 8.12.3
