@@ -2,41 +2,55 @@
 
 [English](README.en.md) | 简体中文
 
-![pi-todo-lite：输入框上方的 Todo 表与运行中的工具调用](assets/cover.png)
+![pi-todo-lite：输入框上方的 Todo 表，右侧是运行中的工具调用](assets/cover.png)
 
-pi 的 todo 扩展：模型维护一张有序的 Todo 表，输入框上方常驻显示；compaction、切分支、`--continue` 之后照旧回放。四个源文件、零运行时依赖。
+Pi 的 todo 扩展。模型维护一张有序任务表。表显示在输入框上方。compaction、切分支、`--continue` 之后，表照旧回放。零运行时依赖。
 
 ## 安装
+
+用 npm 安装：
 
 ```bash
 pi install npm:pi-todo-lite
 ```
 
-跟 GitHub 默认分支走（想尝鲜或者要改代码）：
+从 GitHub 默认分支安装：
 
 ```bash
-pi install git:github.com/setwhite/pi-todo-lite   # 写进 ~/.pi/agent/settings.json
-pi -e git:github.com/setwhite/pi-todo-lite        # 只试一次，不落 settings
+pi install git:github.com/setwhite/pi-todo-lite   # 写入 ~/.pi/agent/settings.json
+pi -e git:github.com/setwhite/pi-todo-lite        # 只试一次，不写 settings
 ```
 
 ## 用法
 
-- 模型侧只有一个工具 `todo(tasks)`：一次调用交完整张表、整表替换，`tasks: []` 表示清空。
-- 表在输入框上方，默认最多 9 行（溢出先丢已完成的）；`alt+t` 折叠它，任务表一寸不动。
-- 整表做完后它留在屏幕上，直到你发下一条消息才消失（`lifecycle.onFinish` 可换）。
-- `/todos` 全列清单；`/todos clear` 清空；`/todos export` 导出 markdown；`/todos import <file>` 读回（表非空时先 clear）。
+模型侧只有一个工具 `todo(tasks)`。一次调用提交整张表，整表替换旧表。`tasks: []` 清空表。
+
+表显示在输入框上方。行数超过 `ui.widget.maxLines` 时先丢已完成的任务。按 `alt+t` 折叠表，任务数据不变。
+
+整表完成后，表留在屏幕上。你发下一条消息时表清空。改 `lifecycle.onFinish` 可换这个行为。
+
+命令：
+
+- `/todos` 列出全部任务，不截断。
+- `/todos clear` 清空表。
+- `/todos export` 导出 markdown checklist。
+- `/todos import <file>` 读回 markdown checklist。表必须为空；不为空时先运行 `/todos clear`。
 
 ## 配置
 
-`<agent dir>/pi-todo/config.json`：`<agent dir>` 先看 `$PI_CODING_AGENT_DIR`，没设就是 `~/.pi/agent`。扩展**只读不写**，没有这个文件就是全默认值；JSON 坏、键名不认识、类型或枚举错会直接抛错（消息带绝对路径与逐条 `字段路径: 原因`），数值越界自动夹到上下限。
+配置文件是 `<agent dir>/pi-todo/config.json`。`<agent dir>` 取 `$PI_CODING_AGENT_DIR`；未设置时取 `~/.pi/agent`。
 
-零配置就能用。要改就只写要改的键：
+扩展只读这个文件，从不写入。文件不存在时全部用默认值。
+
+以下情况抛出错误，消息带绝对路径与逐条 `字段路径: 原因`：JSON 损坏、键名未知、类型或枚举错。数值越界时自动夹到上下限。
+
+零配置即可用。只写要改的键：
 
 ```json
 { "ui": { "widget": { "maxLines": 5 } } }
 ```
 
-全部键，值即默认值（`//` 只是注释，真配的时候删掉）：
+全部键如下，值即默认值。`//` 只是注释；实际配置文件里删掉。
 
 ```jsonc
 {
@@ -76,34 +90,31 @@ pi -e git:github.com/setwhite/pi-todo-lite        # 只试一次，不落 settin
 }
 ```
 
-未知键直接抛错（见上），不会静默忽略。`pnpm test` 有一条对账：这份示例必须跟代码里的默认值逐字一致。
+未知键直接抛错，不会静默忽略。
 
 ## 开发
 
 ```bash
 pnpm install
-pnpm lint                          # biome check：lint + 格式化检查（`--write` 落盘）
-pnpm check:imports                 # 依赖方向闸：docs/SPEC.md「模块」一节的机读版
+pnpm lint                          # biome check：lint 与格式检查（`--write` 落盘）
+pnpm check:imports                 # 依赖方向闸：docs/ARCHITECTURE.md「依赖方向」的机读版
 pnpm typecheck                     # tsc --noEmit
 pnpm test                          # vitest
-pi -ne -e ./src/index.ts           # 从工作区直接跑，不进 settings
+pi -ne -e ./src/index.ts           # 从工作区直接运行，不写 settings
 ```
 
-源码全在 `src/`（入口 `src/index.ts`），测试在 `test/`，仓库根只放配置与文档。CI 跑上面 lint / `check:imports` / typecheck / test 四条。
+提交前闸（可选，按 clone 启用）：`git config core.hooksPath .githooks`。启用后每次提交运行同样四条命令，约 3 秒。
 
-提交前闸（可选，仓库内生效）：`git config core.hooksPath .githooks`，之后每次提交跑同样四条，约 3 秒。
-
-发版：改 `package.json` 的 `version` 与 `CHANGELOG.md`，推送 `main` 即由 `.github/workflows/npm-publish.yml` 发布（registry 上已有该版本则跳过）。
+发版：改 `package.json` 的 `version` 与 `CHANGELOG.md`，推送到 `main`。流水线见 `.github/workflows/npm-publish.yml`。
 
 ## 文档
 
 | 文档 | 什么时候看 |
 |---|---|
-| [`docs/SPEC.md`](docs/SPEC.md) | 唯一契约：问题、用户故事、工具协议、界面、验收标准（AC）、不做的、术语。要改协议先改它 |
-| [`docs/DECISIONS.md`](docs/DECISIONS.md) | 想推翻某个设计（整表协议、状态载体、nudge、配置读取、自动清空）之前，先看当初为什么这么定 |
-| [`CHANGELOG.md`](CHANGELOG.md) | 每个已发布版本的用户可见变更；升级前看这里 |
-
-文档只留代码里读不出的东西：签名、导出、逐条行为看源码。
+| [`docs/specs/0001-pi-todo-lite.md`](docs/specs/0001-pi-todo-lite.md) | 契约：用户故事、验收标准（AC）、不做的。改这三样先改它 |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 模块职责、依赖方向、不变量。加文件或改依赖前看它 |
+| [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | 术语。起名或文案打架时看它 |
+| [`CHANGELOG.md`](CHANGELOG.md) | 每个已发布版本的用户可见变更。升级前看它 |
 
 ## License
 

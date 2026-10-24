@@ -2,41 +2,55 @@
 
 English | [简体中文](README.md)
 
-![pi-todo-lite: the Todo table above the editor alongside a running tool call](assets/cover.png)
+![pi-todo-lite: the Todo table above the editor, next to a running tool call](assets/cover.png)
 
-A todo extension for [Pi](https://pi.dev): the model keeps one ordered task table, shown above the editor and replayed after compaction, branch switches and `--continue`. Four source files, zero runtime dependencies.
+A todo extension for [Pi](https://pi.dev). The model keeps one ordered task table. The table shows above the editor. The table replays after compaction, a branch switch, or `--continue`. No runtime dependencies.
 
 ## Install
+
+Install from npm:
 
 ```bash
 pi install npm:pi-todo-lite
 ```
 
-From GitHub (tracks the default branch):
+Install from the default GitHub branch:
 
 ```bash
-pi install git:github.com/setwhite/pi-todo-lite   # writes to ~/.pi/agent/settings.json
-pi -e git:github.com/setwhite/pi-todo-lite        # try it once, nothing persisted
+pi install git:github.com/setwhite/pi-todo-lite   # writes ~/.pi/agent/settings.json
+pi -e git:github.com/setwhite/pi-todo-lite        # one try, nothing saved
 ```
 
 ## Usage
 
-- One tool, `todo(tasks)`: submit the whole table in one call, replacing the previous one; `tasks: []` clears it.
-- The table sits above the editor, 9 lines by default (overflow drops completed tasks first); `alt+t` collapses it without touching the table.
-- A finished table stays on screen until your next message (`lifecycle.onFinish` changes that).
-- `/todos` lists every task; `/todos clear` empties the table; `/todos export` writes a markdown checklist; `/todos import <file>` reads it back (only when the table is empty).
+The model gets one tool, `todo(tasks)`. One call submits the whole table. The new table replaces the old table. `tasks: []` clears the table.
+
+The table shows above the editor. If the table needs more lines than `ui.widget.maxLines`, completed tasks drop first. Press `alt+t` to collapse the table. The task data does not change.
+
+A finished table stays on screen. The table clears when you send the next message. Set `lifecycle.onFinish` to change this behavior.
+
+Commands:
+
+- `/todos` lists all tasks, without truncation.
+- `/todos clear` clears the table.
+- `/todos export` writes a markdown checklist.
+- `/todos import <file>` reads a markdown checklist. The table must be empty; otherwise run `/todos clear` first.
 
 ## Configuration
 
-`<agent dir>/pi-todo/config.json`, where `<agent dir>` is `$PI_CODING_AGENT_DIR` or `~/.pi/agent`. The extension only reads it: no file means all defaults. Broken JSON, an unknown key, or a wrong type/enum throws (the message carries the absolute path and per-field `path: reason`); out-of-range numbers are clamped.
+The config file is `<agent dir>/pi-todo/config.json`. `<agent dir>` is `$PI_CODING_AGENT_DIR`. If unset, it is `~/.pi/agent`.
 
-Zero config works. Write only the keys you want to change:
+The extension only reads this file. It never writes it. Without the file, all values are defaults.
+
+These cases throw an error. The message holds the absolute path and one `path: reason` line per fault: broken JSON, an unknown key, a wrong type or enum. Out-of-range numbers are clamped.
+
+Zero config works. Write only the keys that you change:
 
 ```json
 { "ui": { "widget": { "maxLines": 5 } } }
 ```
 
-Every key, with its default value (`//` starts a comment; drop them in a real file):
+All keys follow, with their default values. The `//` starts a comment. Remove comments in a real file.
 
 ```jsonc
 {
@@ -76,32 +90,31 @@ Every key, with its default value (`//` starts a comment; drop them in a real fi
 }
 ```
 
-Unknown keys throw (see above), never silently ignored. `pnpm test` reconciles this sample against the defaults in code.
+An unknown key throws. Nothing is silently ignored.
 
 ## Development
 
 ```bash
 pnpm install
-pnpm lint                          # biome check: lint + format check (`--write` applies)
-pnpm check:imports                 # dependency-direction gate: executable form of docs/SPEC.md "Modules"
+pnpm lint                          # biome check: lint and format check (`--write` applies fixes)
+pnpm check:imports                 # dependency gate: executable form of docs/ARCHITECTURE.md "Dependency direction"
 pnpm typecheck                     # tsc --noEmit
 pnpm test                          # vitest
 pi -ne -e ./src/index.ts           # run from the working tree, no settings entry
 ```
 
-Source lives in `src/` (`src/index.ts` is the entry), tests in `test/`, the repo root only holds config and docs. CI runs lint / `check:imports` / typecheck / test.
+Pre-commit gate (optional, per clone): `git config core.hooksPath .githooks`. After that, each commit runs the same four commands, about 3 seconds.
 
-Pre-commit gate (optional, per clone): `git config core.hooksPath .githooks` — every commit then runs the same four, about 3 seconds.
-
-Release: bump `version` in `package.json` and update `CHANGELOG.md`; pushing to `main` publishes via `.github/workflows/npm-publish.yml` (skips versions already on the registry).
+Release: change `version` in `package.json` and update `CHANGELOG.md`. Push to `main`. The workflow is `.github/workflows/npm-publish.yml`.
 
 ## Docs
 
 | Doc | When to read it |
 |---|---|
-| [`docs/SPEC.md`](docs/SPEC.md) | The contract (Chinese): problem, stories, tool protocol, UI, acceptance criteria, non-goals, glossary |
-| [`docs/DECISIONS.md`](docs/DECISIONS.md) | Before overturning a design (whole-table protocol, state carrier, nudge, config reading, auto-clear) — why it was chosen (Chinese) |
-| [`CHANGELOG.md`](CHANGELOG.md) | User-visible changes for each released version |
+| [`docs/specs/0001-pi-todo-lite.md`](docs/specs/0001-pi-todo-lite.md) | Contract (Chinese): user stories, acceptance criteria, non-goals. Change one of these three here first |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Module duties, dependency direction, invariants (Chinese). Read it before you add a file or a dependency |
+| [`docs/GLOSSARY.md`](docs/GLOSSARY.md) | Terms (Chinese). Read it when a name or a message conflicts |
+| [`CHANGELOG.md`](CHANGELOG.md) | User-visible changes for each release. Read it before you upgrade |
 
 ## License
 
