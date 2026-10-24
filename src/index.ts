@@ -1,9 +1,3 @@
-/**
- * pi-todo-lite — Pi 扩展入口。唯一 import pi 的文件，只做接线：
- * 读配置 → 注册 todo 工具 → 三个会话事件回放快照 → setWidget 组件工厂。
- * 模型侧文案（description / guidelines）的定稿文本存在 config.ts 的 DEFAULTS 里，`tool-name` 在注册时替成配置里的真实工具名。
- */
-
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import type {
@@ -29,24 +23,18 @@ import {
 	type WidgetConfig,
 } from "./view.ts";
 
-/** widget key：`ctx.ui.setWidget("todo", …)`。 */
 const WIDGET_KEY = "todo";
 
-/** 命令名：`/todos`。与 rpiv-todo 装的同名命令撞车问题见 docs/SPEC.md 的「其他 → 已知偏差」。 */
 const COMMAND_NAME = "todos";
 
-/** 同名文件最多让位多少次（`name` → `name-2` → …）。 */
 const EXPORT_NAME_ATTEMPTS = 100;
 
-/** 用法提示：子命令不认识、或者 `import` 少了文件名时给同一句。 */
 const USAGE = `Usage: /${COMMAND_NAME} [clear | export | import <file>]`;
 
-/** 导出目录：空配置 = 当前项目根，相对路径按项目根解析。 */
 function exportDir(cwd: string, dir: string): string {
 	return dir === "" ? cwd : resolve(cwd, dir);
 }
 
-/** 名字模板只准给文件名：目录归 `commands.export.dir`，带分隔符或为空就报错。 */
 function assertPlainName(name: string, pattern: string): void {
 	if (name === "" || name === "." || name === ".." || /[\\/]/.test(name)) {
 		throw new Error(
@@ -55,7 +43,7 @@ function assertPlainName(name: string, pattern: string): void {
 	}
 }
 
-/** 剥掉一层配对引号：路径里有空格时用户会写 `"a b.md"`。 */
+/** 用户给带空格的路径时会加引号。 */
 function stripQuotes(value: string): string {
 	const quote = value[0];
 	if (
@@ -67,7 +55,6 @@ function stripQuotes(value: string): string {
 	return value;
 }
 
-/** 落盘：从 `pattern` 算出的名字被占了就依次试 `-2`、`-3`…，返回真正写入的绝对路径。 */
 function writeExportFile(
 	cwd: string,
 	dir: string,
@@ -101,10 +88,8 @@ function writeExportFile(
 	throw new Error(`pi-todo: no free file name for ${name} in ${target}`);
 }
 
-/** 模型侧 guidelines 里的工具名占位符：`tool-name: …` 注册时变成 `todo: …`。 */
 const TOOL_NAME_PLACEHOLDER = "tool-name";
 
-/** 「干完发空表能清」那条 guideline 的标记：只有 `onFinish: "model"` 档注册它。 */
 const CLEAR_HINT_MARK = "`tasks: []`";
 
 export default function piTodo(pi: ExtensionAPI): void {
@@ -117,21 +102,19 @@ export default function piTodo(pi: ExtensionAPI): void {
 		showCompleted: config.ui.widget.showCompleted,
 		placement: config.ui.widget.placement,
 	};
-	/** 当前任务表：只由工具调用与回放改变，widget 每次 render 都读它。 */
+	/** 只经 commit / restore 改变；widget 每次 render 读它。 */
 	let tasks: Task[] = [];
-	/** 组件工厂给的 TUI 句柄，用来在状态变化后重画；没有 UI 时一直是 undefined。 */
 	let tui: TUI | undefined;
 
-	/** 收起 / 展开：只切视图，不碰账（只有折叠键一个入口）。 */
+	/** 只切视图，不碰账。 */
 	let collapsed = false;
 
-	/** 主题里我们用到的两个方法（结构化类型，省得 import pi 内部的 Theme）。 */
+	/** 结构化类型，省得 import pi 内部的 Theme。 */
 	type StyleTheme = {
 		strikethrough(text: string): string;
 		style(text: string, options: { dim?: boolean }): string;
 	};
 
-	/** 已完成行的样式（`ui.widget.completedStyle`）：theme 决定观感，config 决定用哪种。 */
 	const styleCompleted = (
 		theme: StyleTheme,
 		style: Config["ui"]["widget"]["completedStyle"],
@@ -141,7 +124,7 @@ export default function piTodo(pi: ExtensionAPI): void {
 		return (text) => theme.style(text, { dim: true });
 	};
 
-	/** 组件只读 live 状态、不缓存，所以 invalidate 空转；样式每次 render 现算（主题与配置都可能换）。 */
+	/** 只读 live 状态、不缓存，所以 invalidate 空转。 */
 	const widget = (theme: StyleTheme): Component & { dispose?(): void } => {
 		const lineStyle = styleCompleted(theme, config.ui.widget.completedStyle);
 		return {
@@ -155,7 +138,6 @@ export default function piTodo(pi: ExtensionAPI): void {
 		};
 	};
 
-	/** 重设 widget：widget 关掉、没有 UI、宿主不认 setWidget 时都静默跳过；收起时明确传 undefined 让宿主收掉。 */
 	const draw = (ctx: ExtensionContext): void => {
 		if (
 			!config.ui.widget.enabled ||
@@ -177,14 +159,12 @@ export default function piTodo(pi: ExtensionAPI): void {
 		);
 	};
 
-	/** 状态落账：写快照 → 更新内存 → 重画（工具与命令共用）。 */
 	const commit = (next: Task[]): void => {
 		pi.appendEntry(STATE_CUSTOM_TYPE, { tasks: next });
 		tasks = next;
 		tui?.requestRender();
 	};
 
-	/** 命令输出一律走 `ctx.ui.notify`；JSON / print 下没有 ui 就静默跳过（状态照旧落账）。 */
 	const notify = (
 		ctx: ExtensionContext,
 		message: string,
@@ -194,7 +174,6 @@ export default function piTodo(pi: ExtensionAPI): void {
 		ctx.ui.notify(message, type);
 	};
 
-	/** 从当前分支最后一条快照恢复，再重画。 */
 	const restore = (ctx: ExtensionContext): void => {
 		tasks = replayTasks(ctx.sessionManager.getBranch());
 		draw(ctx);
@@ -205,18 +184,16 @@ export default function piTodo(pi: ExtensionAPI): void {
 		label: "Todo",
 		description: config.guidance.description,
 		promptSnippet: config.guidance.promptSnippet || undefined,
-		// keep 档要留成存档、clear 档会自己清 —— 两档告诉模型能清空只会拆台
 		promptGuidelines: config.guidance.promptGuidelines
 			.filter(
 				(guideline) =>
 					config.lifecycle.onFinish === "model" ||
 					!guideline.includes(CLEAR_HINT_MARK),
 			)
-			// 一处 guideline 里可能写多次占位符：全部替换，没写的原样留着
 			.map((guideline) =>
 				guideline.replaceAll(TOOL_NAME_PLACEHOLDER, toolName),
 			),
-		// 三个字段全必填、无字段文案；additionalProperties: false 与 plan.ts 的未知键拒绝同一件事
+		// additionalProperties: false 与 plan.ts 的未知键拒绝同一件事
 		parameters: Type.Object(
 			{
 				tasks: Type.Array(
@@ -237,7 +214,7 @@ export default function piTodo(pi: ExtensionAPI): void {
 		),
 		executionMode: "sequential",
 		execute: async (_toolCallId, params) => {
-			// 校验失败照原样抛给 pi，这里不动任何状态
+			// 校验失败照原样抛给 pi，不动任何状态
 			const next = validateTasks(params, {
 				toolName,
 				maxTasks: config.plan.maxTasks,
@@ -245,7 +222,6 @@ export default function piTodo(pi: ExtensionAPI): void {
 				requireSingleInProgress: config.plan.requireSingleInProgress,
 			});
 			commit(next);
-			// details 留空：状态只写 custom entry，回放不读 toolResult 的 details
 			return {
 				content: [{ type: "text", text: formatTasks(tasks) }],
 				details: undefined,
@@ -301,7 +277,6 @@ export default function piTodo(pi: ExtensionAPI): void {
 							"info",
 						);
 					} catch (error) {
-						// 命令面不许把异常抛回宿主（用户只会看到 extension_error，收不到提示）
 						notify(ctx, (error as Error).message, "error");
 					}
 					return;
@@ -378,8 +353,6 @@ export default function piTodo(pi: ExtensionAPI): void {
 	}
 
 	if (config.lifecycle.onFinish === "clear") {
-		// clear：整表完成后等用户发下一条消息才清 —— 那时他一定看完表了；
-		// 在 agent_settled 就清会把表从他眼皮底下抽走（2026-10-18 改）
 		pi.on("input", () => {
 			if (
 				tasks.length === 0 ||

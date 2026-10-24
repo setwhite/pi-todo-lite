@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-/** 配置键的类型；键表与取值说明见 README 的配置节。 */
 export type Config = {
 	tools: { todo: { name: string } };
 	plan: {
@@ -36,16 +35,10 @@ export type Config = {
 };
 
 export type LoadOptions = {
-	/** 直接指定配置文件；不给则按 configPath > $PI_CODING_AGENT_DIR > ~/.pi/agent 解析。 */
 	configPath?: string;
-	/** 只读其中的 PI_CODING_AGENT_DIR，默认 process.env。 */
 	env?: NodeJS.ProcessEnv;
 };
 
-/**
- * 默认值。键表改一份就改这里：README 的配置示例是它的文档（docs.test.ts 对账）。
- * guidance 里的 `tool-name:` 是占位符，index.ts 注册时替成 tools.todo.name。
- */
 export const DEFAULTS: Config = {
 	tools: { todo: { name: "todo" } },
 	plan: { maxTasks: 20, maxSubjectChars: 120, requireSingleInProgress: false },
@@ -61,7 +54,6 @@ export const DEFAULTS: Config = {
 		},
 		shortcut: { toggle: "alt+t" },
 	},
-	// 默认 clear：整表完成后等用户下一条消息再清（时机见 docs/SPEC.md 的 AC8）
 	lifecycle: { onFinish: "clear" },
 	commands: {
 		todos: { enabled: true },
@@ -71,7 +63,7 @@ export const DEFAULTS: Config = {
 	guidance: {
 		description: "Keep a todo list for multi-step work.",
 		promptSnippet: "",
-		// 拆成三条：index.ts 按 onFinish 只过滤掉最后那条（keep / clear 档不告诉模型「发空表能清」）
+		// 拆成三条：index.ts 靠「含 CLEAR_HINT_MARK」过滤，合并成一条就分不了档
 		promptGuidelines: [
 			"tool-name: Keep content short, one line, imperative.",
 			"tool-name: Use for work with 3+ steps.",
@@ -85,7 +77,6 @@ const COMPLETED_STYLES = ["strikethrough", "dim", "plain"] as const;
 const ON_FINISH = ["model", "keep", "clear"] as const;
 const TOOL_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
 
-/** 配置文件绝对路径：入参 > $PI_CODING_AGENT_DIR > ~/.pi/agent。 */
 export function resolveConfigPath(options: LoadOptions = {}): string {
 	if (options.configPath !== undefined) return resolve(options.configPath);
 	const env = options.env ?? process.env;
@@ -95,10 +86,6 @@ export function resolveConfigPath(options: LoadOptions = {}): string {
 	return join(agentDir, "pi-todo", "config.json");
 }
 
-/**
- * 读配置。文件不存在取全默认值；JSON 坏、未知键、类型或枚举错抛 Error
- * （消息含绝对路径，逐条 <字段路径>: <原因>，一次列完）；数值越界 clamp。
- */
 export function loadConfig(options: LoadOptions = {}): Config {
 	const path = resolveConfigPath(options);
 	const source = readConfigFile(path);
@@ -408,7 +395,6 @@ function buildConfig(input: unknown, errors: string[]): Config {
 	};
 }
 
-/** 取一个对象型字段；缺席当空对象（其下子键各自回落默认值），类型不对报错。 */
 function readGroup(value: unknown, path: string, errors: string[]): Raw {
 	if (value === undefined) return {};
 	if (isRecord(value)) return value;
@@ -543,7 +529,6 @@ function isRecord(value: unknown): value is Raw {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** 报错时替进消息里的值：标量照原样、字符串带引号，容器只说形状 —— 不回显正文。 */
 function describe(value: unknown): string {
 	if (typeof value === "string") return echo(value);
 	if (value === null || typeof value !== "object") return String(value);
@@ -552,7 +537,6 @@ function describe(value: unknown): string {
 	return `object with keys ${keys.length === 0 ? "(none)" : keys.join(", ")}`;
 }
 
-/** 回显字符串的上限（按 code point 计）：超了截断，别把大段正文灌进错误消息。 */
 const ECHO_LIMIT = 32;
 
 function echo(value: string): string {

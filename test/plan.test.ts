@@ -3,7 +3,6 @@ import { formatTasks, replayTasks, validateTasks } from "../src/plan.ts";
 
 const LIMITS = { toolName: "todo", maxTasks: 20, maxContentChars: 120 };
 
-/** 捕获同步调用抛出的错误文本；未抛错时断言失败。 */
 function captureError(run: () => unknown): string {
 	try {
 		run();

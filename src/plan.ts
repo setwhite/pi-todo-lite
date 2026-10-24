@@ -1,4 +1,3 @@
-/** 三态，没有 deleted：删就是不出现在表里。 */
 export type Status = "pending" | "in_progress" | "completed";
 
 export type Task = {
@@ -7,45 +6,34 @@ export type Task = {
 };
 
 export type ValidateOptions = {
-	/** 工具名，出现在每条错误消息的开头。 */
 	toolName: string;
 	maxTasks: number;
 	maxContentChars: number;
-	/** 只允许一条 `in_progress`（`plan.requireSingleInProgress`）；不给就放开并行。 */
 	requireSingleInProgress?: boolean;
 };
 
 const STATUSES = ["pending", "in_progress", "completed"] as const;
 
-/** 消息里回显字符串的上限（按 code point 计）：超了截断，别把大段正文灌进错误消息。 */
 const ECHO_LIMIT = 32;
 
-/**
- * 违规字符：C0/C1 控制符、行分隔符，以及 RLO / ZWSP / BOM 这类不可见格式字符（\p{Cf}，连 ZWJ 组字 emoji 一起）
- * —— 这里是纯文本，不做任何白名单。
- */
+/** 不做白名单：`\p{Cf}` 连 ZWJ 组字 emoji 一并拒。 */
 const FORBIDDEN_CHARS = /[\p{Cc}\p{Zl}\p{Zp}\p{Cf}]/u;
 const FORBIDDEN_RUN = /[\p{Cc}\p{Zl}\p{Zp}\p{Cf}]+/gu;
 
-/** 一整条转义序列：CSI（`ESC [ 31m`）、OSC（`ESC ] 8;;url BEL`）与单字符的 Fe 转义 —— 只删 ESC 会留下 `[31m` 这种残渣。 */
+/** 整条转义序列（CSI / OSC / Fe）：只删 ESC 会留下 `[31m` 这种残渣。 */
 const ESCAPE_SEQUENCE =
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: 要匹配的就是 ESC / BEL 本身 —— 账本侧靠这条把转义序列整条丢掉（docs/SPEC.md「状态与回放」）
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: 要匹配的就是 ESC / BEL 本身 —— 账本侧靠这条把转义序列整条丢掉
 	/\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\|$)|[@-Z\\-_])/g;
 
-/** 会话里快照条目的 customType：状态只写这一条账，index.ts 写、replayTasks 读。 */
 export const STATE_CUSTOM_TYPE = "pi-todo-state";
 
-/** 三态各自的字形。 */
 const GLYPHS: Record<Status, string> = {
 	pending: "[ ]",
 	in_progress: "[-]",
 	completed: "[x]",
 };
 
-/**
- * 校验一次整表提交。全有或全无：任一项不合规就抛 Error，消息按条列出全部违规
- * （每条前缀 `<toolName>: `，逐行），返回的是 trim 过的新数组，不改入参。
- */
+/** 全有或全无：一次列完全部原因再抛；返回 trim 过的新数组，不改入参。 */
 export function validateTasks(
 	input: unknown,
 	options: ValidateOptions,
@@ -84,7 +72,6 @@ export function validateTasks(
 	return tasks;
 }
 
-/** 校验一项；不合规的把原因写进 reasons 并返回 undefined。 */
 function checkTask(
 	value: unknown,
 	position: number,
@@ -137,10 +124,6 @@ function readContent(
 	return ok ? content : undefined;
 }
 
-/**
- * 违规字符 → 报错里的原因：`a control character (U+000A); keep it one line` /
- * `an invisible character (U+202E); keep it plain text`。只按类给名 + U+ 码点，不逐个字符建对照表。
- */
 function offense(char: string): string {
 	const code = char.codePointAt(0) ?? 0;
 	const what = /\p{Cc}/u.test(char)
@@ -172,12 +155,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** 按 Unicode code point 计（`Array.from`）：emoji 算 1 个，与「120 字符」的直觉一致。 */
 function countChars(value: string): number {
 	return Array.from(value).length;
 }
 
-/** 报错时替进消息里的值：标量照原样、字符串带引号（超长截断），容器只说形状 —— 不回显正文。 */
 function describe(value: unknown): string {
 	if (typeof value === "string") return echo(value);
 	if (value === null || typeof value !== "object") return String(value);
@@ -193,11 +174,6 @@ function echo(value: string): string {
 		: `${JSON.stringify(chars.slice(0, ECHO_LIMIT).join(""))}…`;
 }
 
-/**
- * 从会话条目里回放状态：从后往前找**最后一条有效快照**，坏条目跳过继续往前扫，
- * 一条都没有就是空表。只认 `type: "custom"` + `customType: "pi-todo-state"` 的
- * `data.tasks`，不读 toolResult 的 details。
- */
 export function replayTasks(entries: readonly unknown[]): Task[] {
 	for (let index = entries.length - 1; index >= 0; index -= 1) {
 		const tasks = readSnapshot(entries[index]);
@@ -206,10 +182,7 @@ export function replayTasks(entries: readonly unknown[]): Task[] {
 	return [];
 }
 
-/**
- * 读一条快照；不是我们的条目、或形状坏了 → undefined（当作没有）。快照里的控制字符
- * 压成空格：老账本里留了换行不该让整张表消失。
- */
+/** 快照里的换行压成空格：老账本留了换行不该让整张表消失。 */
 function readSnapshot(entry: unknown): Task[] | undefined {
 	if (
 		!isRecord(entry) ||
@@ -240,7 +213,6 @@ function readSnapshot(entry: unknown): Task[] | undefined {
 	return tasks;
 }
 
-/** 工具返回给模型的文本：一行进度 + 每项一行（`[ ]` / `[-]` / `[x]`）。空表就只有那行进度。 */
 export function formatTasks(tasks: readonly Task[]): string {
 	return [
 		progressLine(tasks),
@@ -248,7 +220,6 @@ export function formatTasks(tasks: readonly Task[]): string {
 	].join("\n");
 }
 
-/** `Todo {done}/{total}`；有 in_progress 才补 `· {doing} doing`（与 widget 表头同一规则）。 */
 function progressLine(tasks: readonly Task[]): string {
 	const done = tasks.filter((task) => task.status === "completed").length;
 	const doing = tasks.filter((task) => task.status === "in_progress").length;

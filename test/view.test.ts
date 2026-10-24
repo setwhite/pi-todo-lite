@@ -17,7 +17,6 @@ const CFG: WidgetConfig = {
 	placement: "aboveEditor",
 };
 
-/** 造 count 条任务，content 里带序号便于对账。 */
 function makeTasks(count: number, status: Status): Task[] {
 	return Array.from({ length: count }, (_, index) => ({
 		content: `task ${index + 1}`,
@@ -25,7 +24,6 @@ function makeTasks(count: number, status: Status): Task[] {
 	}));
 }
 
-/** 只有代理对、没有孤立代理字符时为 true。 */
 function hasLoneSurrogate(text: string): boolean {
 	return /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(
 		text,

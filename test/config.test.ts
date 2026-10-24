@@ -6,21 +6,18 @@ import { DEFAULTS, loadConfig, resolveConfigPath } from "../src/config.ts";
 
 const createdDirs: string[] = [];
 
-/** 新建临时目录；测试结束后由 afterEach 统一删除。 */
 function makeTempDir(): string {
 	const dir = mkdtempSync(join(tmpdir(), "pi-todo-lite-test-"));
 	createdDirs.push(dir);
 	return dir;
 }
 
-/** 在临时目录写入 config.json 片段，返回配置文件绝对路径。 */
 function writeConfig(content: string): string {
 	const path = join(makeTempDir(), "config.json");
 	writeFileSync(path, content, "utf-8");
 	return path;
 }
 
-/** 建 agent 目录并写入 <agent>/pi-todo/config.json，返回 agent 目录。 */
 function writeAgentConfig(content: string): string {
 	const agentDir = join(makeTempDir(), "agent");
 	mkdirSync(join(agentDir, "pi-todo"), { recursive: true });
@@ -28,7 +25,6 @@ function writeAgentConfig(content: string): string {
 	return agentDir;
 }
 
-/** 捕获同步调用抛出的错误文本；未抛错时断言失败。 */
 function captureError(run: () => unknown): string {
 	try {
 		run();

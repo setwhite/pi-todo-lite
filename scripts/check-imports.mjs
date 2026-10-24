@@ -1,11 +1,7 @@
-/**
- * docs/SPEC.md「模块」一节的机读版：依赖方向边表 + 单一出口 + 「src/ 不建目录」。
- * 规则改了先改 SPEC.md，再改这里的 EDGES / SINGLE_IMPORT；两边不一致 CI 会红。
- */
+/** docs/ARCHITECTURE.md「依赖方向」与「放置规则」的机读版。 */
 
 import { readdirSync, readFileSync } from "node:fs";
 
-/** 允许的跨文件边：文件 -> 它可以直接 import 的文件（src/ 平铺，模块名即文件名）。 */
 const EDGES = {
 	config: [],
 	plan: [],
@@ -13,7 +9,6 @@ const EDGES = {
 	index: ["config", "plan", "view"],
 };
 
-/** 只允许出现在指定文件的依赖；typeOnlyIn 里的文件必须写成 `import type`。 */
 const SINGLE_IMPORT = [
 	{
 		specifier: /^@earendil-works\//,
@@ -32,7 +27,9 @@ const failures = [];
 const entries = readdirSync("src", { withFileTypes: true });
 for (const entry of entries) {
 	if (entry.isDirectory()) {
-		failures.push(`src/${entry.name}/: src/ 下不建目录（docs/SPEC.md）`);
+		failures.push(
+			`src/${entry.name}/: src/ 下不建目录（docs/ARCHITECTURE.md）`,
+		);
 	}
 }
 
@@ -47,7 +44,7 @@ for (const file of files) {
 	const from = moduleOf(file);
 	if (!(from in EDGES)) {
 		failures.push(
-			`src/${file}: 未登记的模块——新增文件要同时改 EDGES 与 docs/SPEC.md`,
+			`src/${file}: 未登记的模块——新增文件要同时改 EDGES 与 docs/ARCHITECTURE.md`,
 		);
 		continue;
 	}
@@ -77,7 +74,7 @@ for (const file of files) {
 }
 
 if (failures.length > 0) {
-	console.error("import 图违反 docs/SPEC.md「模块」一节：");
+	console.error("import 图违反 docs/ARCHITECTURE.md「模块」一节：");
 	for (const failure of failures) console.error(`  ${failure}`);
 	process.exit(1);
 }

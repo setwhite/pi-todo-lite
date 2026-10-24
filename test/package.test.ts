@@ -1,7 +1,4 @@
-/**
- * 发布物断言：`files` 决定哪些文件随包发布，改错了本地全绿、只有装包的用户会崩。
- * 只读 git 索引与 package.json，不联网、不打包。
- */
+/** 改错了本地全绿，装包的用户才会崩。 */
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -27,11 +24,9 @@ const tracked = execFileSync("git", ["ls-files"], {
 	.filter(Boolean)
 	.map((path) => path.replaceAll("\\", "/"));
 
-/** 是否随包发布：`files` 的每一项既可以是文件，也可以是目录前缀。 */
 const shipped = (path: string): boolean =>
 	pkg.files.some((entry) => path === entry || path.startsWith(`${entry}/`));
 
-/** 开发期专用、不进包：测试、守卫脚本与文档。 */
 const development = (path: string): boolean =>
 	["test/", "scripts/", "docs/"].some((prefix) => path.startsWith(prefix));
 

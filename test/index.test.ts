@@ -22,14 +22,12 @@ import { exportFileName } from "../src/view.ts";
 
 const dirs: string[] = [];
 
-/** 建一个随用例销毁的临时目录。 */
 function makeTempDir(prefix: string): string {
 	const dir = mkdtempSync(join(tmpdir(), `pi-todo-lite-${prefix}-`));
 	dirs.push(dir);
 	return dir;
 }
 
-/** 每个用例独立的 agent 目录：配置写在 `<dir>/pi-todo/config.json`，不碰真实 home。返回该目录。 */
 function useConfig(config?: unknown): string {
 	const dir = makeTempDir("index");
 	if (config !== undefined) {
@@ -81,17 +79,13 @@ interface Harness {
 	shortcuts: ShortcutCall[];
 	notes: Note[];
 	ctx: ExtensionContext;
-	/** 累计 requestRender 次数。 */
 	renders: () => number;
-	/** 最近一次 setWidget 的组件按宽度渲染；没设过 widget 就是空表。 */
 	lines: (width: number) => string[];
-	/** 跑一次命令 handler（注册的第一个命令）。 */
 	run: (args: string) => Promise<void>;
-	/** 按一次快捷键（注册的第一个）。 */
 	fireShortcut: () => Promise<void>;
 }
 
-/** fake api + fake ctx：只实现 index.ts 用到的那几样（registerTool / on / appendEntry / ui.setWidget / sessionManager.getBranch）。 */
+/** 只实现 index.ts 用到的那几样。 */
 function harness(
 	options: {
 		hasUI?: boolean;
@@ -177,13 +171,11 @@ function harness(
 	};
 }
 
-/** 触发一个会话事件；index.ts 注册了 session_start / session_compact / session_tree。 */
 function emit(harness: Harness, event: string): void {
 	for (const handler of harness.handlers.get(event) ?? [])
 		handler({ type: event }, harness.ctx);
 }
 
-/** 调一次工具；返回 index.ts 的返回值（校验失败就 reject）。 */
 async function callTool(
 	harness: Harness,
 	params: unknown,
@@ -199,10 +191,9 @@ async function callTool(
 	)) as { content: Array<{ type: string; text: string }> };
 }
 
-/** 子命令认不出、参数给错时的用法提示（index.ts 的 USAGE）。 */
 const USAGE = "Usage: /todos [clear | export | import <file>]";
 
-/** 定稿 schema 的线上形状：比 prompt/my prompt new/schema.md 多一层 additionalProperties: false（见 docs/SPEC.md 的「协议」）。 */
+/** 比 prompt 里的定稿多一层 additionalProperties: false。 */
 const SCHEMA = {
 	type: "object",
 	required: ["tasks"],
@@ -504,7 +495,6 @@ describe("index：会话事件与 widget（AC3）", () => {
 	});
 });
 
-/** 20 条 pending，用来对「/todos 全列」与「widget 截断」两条口径。 */
 function makeTasks(count: number): Array<{ content: string; status: string }> {
 	return Array.from({ length: count }, (_, index) => ({
 		content: `task ${index + 1}`,
@@ -541,7 +531,6 @@ describe("index：lifecycle.onFinish（T12）", () => {
 		expect(harnessed.entries).toHaveLength(2);
 		expect(harnessed.lines(80)).toEqual(["Todo 1/1", "[x] a"]);
 
-		// 用户下一条消息一到才清：两次工具调用 + 自动清空那一条
 		emit(harnessed, "input");
 		expect(harnessed.entries).toHaveLength(3);
 		expect(harnessed.entries.at(-1)).toEqual({
@@ -732,7 +721,6 @@ describe("index：/todos 命令（T8）", () => {
 });
 
 describe("index：/todos export（T9）", () => {
-	/** 只读 cwd 下的 md 文件：名字 → 内容。 */
 	function exported(cwd: string): Array<[string, string]> {
 		return readdirSync(cwd)
 			.sort()
