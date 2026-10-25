@@ -324,6 +324,33 @@ describe("index：注册（AC1）", () => {
 		expect(harnessed.tools[0]?.description).toBe("自定义描述");
 		expect(harnessed.tools[0]?.promptGuidelines).toEqual(["todo: 自定义一条"]);
 	});
+
+	it("description 显式空串：保留空描述，不回退默认", () => {
+		useConfig({ guidance: { description: "" } });
+		const harnessed = harness();
+
+		piTodo(harnessed.api);
+
+		expect(harnessed.tools[0]?.description).toBe("");
+	});
+
+	it("promptSnippet 显式空串：不出现", () => {
+		useConfig({ guidance: { promptSnippet: "" } });
+		const harnessed = harness();
+
+		piTodo(harnessed.api);
+
+		expect(harnessed.tools[0]?.promptSnippet).toBeUndefined();
+	});
+
+	it("promptGuidelines 显式空数组：不出现，不回退默认三条", () => {
+		useConfig({ guidance: { promptGuidelines: [] } });
+		const harnessed = harness();
+
+		piTodo(harnessed.api);
+
+		expect(harnessed.tools[0]?.promptGuidelines).toEqual([]);
+	});
 });
 
 describe("index：一次调用（AC2）", () => {
