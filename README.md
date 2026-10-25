@@ -82,10 +82,10 @@ pi -e git:github.com/setwhite/pi-todo-lite        # 只试一次，不写 settin
     },
     "import": { "enabled": true }                    // /todos import <file>
   },
-  "guidance": {                                      // 给模型看的文案，整组替换
-    "description": "…",                              // 工具描述
-    "promptSnippet": "",                             // 工具清单那行，空 = 不出现
-    "promptGuidelines": ["…"]                        // guidelines
+  "guidance": {                                      // 给模型看的文案；逐键覆盖，空值也覆盖
+    "description": "…",                              // 工具描述；空串 = 空描述
+    "promptSnippet": "",                             // 工具清单那行；空串 = 不出现（缺键同效）
+    "promptGuidelines": ["…"]                        // guidelines；空数组 = 不出现
   }
 }
 ```

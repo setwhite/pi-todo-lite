@@ -82,10 +82,10 @@ All keys follow, with their default values. The `//` starts a comment. Remove co
     },
     "import": { "enabled": true }                    // /todos import <file>
   },
-  "guidance": {                                      // what the model sees, replaced as a group
-    "description": "…",                              // tool description
-    "promptSnippet": "",                             // the tool-list line; empty = omitted
-    "promptGuidelines": ["…"]                        // guidelines
+  "guidance": {                                      // what the model sees; per-key override, empty values included
+    "description": "…",                              // tool description; empty = empty description
+    "promptSnippet": "",                             // the tool-list line; empty = omitted (same as missing)
+    "promptGuidelines": ["…"]                        // guidelines; empty array = omitted
   }
 }
 ```
